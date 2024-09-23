@@ -1,0 +1,55 @@
+{% extends "admin/base_site.html" %}
+
+{% block title %}View Conversation{% endblock %}
+
+{% block extrastyle %}
+<style>
+    .chat-container {
+        display: flex;
+        flex-direction: column;
+        height: 80vh;
+        background-color: #f8f8f8;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 20px;
+        overflow-y: auto;
+    }
+
+    .message {
+        margin-bottom: 10px;
+        padding: 10px;
+        border-radius: 8px;
+    }
+
+    .message.user {
+        background-color: #d8f3dc;
+        text-align: left;
+        align-self: flex-start;
+    }
+
+    .message.ai {
+        background-color: #bde0fe;
+        text-align: right;
+        align-self: flex-end;
+    }
+
+    .timestamp {
+        font-size: 0.8rem;
+        color: #999;
+        text-align: right;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>Conversation with {{ conversation.client.name }}</h1>
+
+<div class="chat-container">
+    {% for message in messages %}
+    <div class="message {% if message.sender == 'client' %}user{% else %}ai{% endif %}">
+        <p>{{ message.content|safe }}</p>
+        <div class="timestamp">{{ message.timestamp|date:"Y-m-d H:i:s" }}</div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
