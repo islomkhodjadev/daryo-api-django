@@ -12,8 +12,8 @@ SECRET_KEY = "django-insecure-9c1&76jsuxjf^=h$9-8$&9)1$(g%1j^bh0mfvf6^g*b0)j1m1f
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
-
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["176.98.237.4", "127.0.0.1:8000", "127.0.0.1", "ringai.uz"]
+SITE_URL = "http://176.98.237.4"
 
 
 # Application definition
@@ -28,12 +28,14 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "rest_framework.authtoken",
+    'corsheaders',
     "api",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    'corsheaders.middleware.CorsMiddleware', 
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -107,8 +109,15 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
+import os
 
-STATIC_URL = "static/"
+MEDIA_URL = 'daryo-api/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+STATIC_URL =  'daryo-api/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+#STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
@@ -134,3 +143,18 @@ JAZZMIN_SETTINGS = {
 #         "rest_framework.permissions.IsAuthenticated",  # Allow only authenticated users
 #     ],
 # }
+# cors settings
+
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_METHODS = [
+    'GET',
+    'POST',
+    'PUT',
+    'DELETE',
+    'OPTIONS',
+]
+CORS_ALLOW_HEADERS = [
+    'Authorization',
+    'X-API-KEY',
+    'Content-Type',
+]
