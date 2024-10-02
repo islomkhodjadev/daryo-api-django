@@ -97,7 +97,7 @@ class ConversationAdmin(admin.ModelAdmin):
             try:
                 ai_response = get_ai_response(
                     conversation.get_all_messages_str,
-                    extra_data="\nyou are now responding to reporters of daro\n",
+                    extra_data="\nyou are now responding to reporters of daro be serious and official you are helper for them, use official emojies\n",
                 )
             except Exception as e:
                 print(f"Error getting AI response: {e}")
