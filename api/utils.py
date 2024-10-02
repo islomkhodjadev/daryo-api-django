@@ -31,8 +31,7 @@ content = (
 
 
 def get_ai_response(user_message, content=content, extra_data=None):
-
-    client = OpenAI(api_key=os.getenv("GPT_TOKEN"))
+    client = OpenAI(api_key=os.getenv("gpt_token"))
 
     if extra_data is not None:
         content += extra_data

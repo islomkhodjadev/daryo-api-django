@@ -67,7 +67,7 @@ class Conversation(models.Model):
 
     def get_chat_url(self):
         """Generates the URL for the custom chat view"""
-        return f"/admin/api/conversation/{self.id}/chat/"
+        return f"/daryo-api/admin/api/conversation/{self.id}/chat/"
 
     @property
     def get_all_messages_str(self):

@@ -12,7 +12,7 @@ class APIKeyMiddleware:
 
     def __call__(self, request):
         # Get the API key from the request headers
-        if request.path.startswith("/admin/"):
+        if request.path.startswith("/daryo-api/admin"):
             return self.get_response(request)
         api_key = request.headers.get("X-API-KEY")
 
