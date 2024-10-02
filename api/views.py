@@ -2,8 +2,11 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Client, Conversation, Message
-from .serializers import ClientSerializer, ConversationSerializer, MessageSerializer
+from .serializers import ClientSerializer, MessageSerializer
 from .utils import get_ai_response
+
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 
 
 class ClientConversationView(APIView):
@@ -27,24 +30,28 @@ class ClientConversationView(APIView):
 
         try:
             # Check if the client already exists
-            client = Client.objects.get(external_id=external_id)
-        except Client.DoesNotExist:
-            # If the client does not exist, create a new client
-            client_data = {"external_id": external_id, "name": name, "email": email}
-            client_serializer = ClientSerializer(data=client_data)
-            if client_serializer.is_valid():
-                client = client_serializer.save()
-            else:
-                return Response(
-                    client_serializer.errors, status=status.HTTP_400_BAD_REQUEST
-                )
+            client, created = Client.objects.get_or_create(
+                external_id=external_id, defaults={"name": name, "email": email}
+            )
+            if created:
+                # New client created
+                client_serializer = ClientSerializer(client)
+        except Exception as e:
+            return Response(
+                {"error": f"An error occurred while accessing the client: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             # Check if a conversation exists for the client
-            conversation = Conversation.objects.get(client=client)
-        except Conversation.DoesNotExist:
-            # If no conversation exists, create a new one
-            conversation = Conversation.objects.create(client=client)
+            conversation, created = Conversation.objects.get_or_create(client=client)
+        except Exception as e:
+            return Response(
+                {
+                    "error": f"An error occurred while accessing the conversation: {str(e)}"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         if not conversation.can_send_message():
             return Response(
@@ -72,7 +79,14 @@ class ClientConversationView(APIView):
         conversation_history = (
             conversation.get_all_messages_str
         )  # Fetch the formatted history
-        ai_response = get_ai_response(conversation_history)
+
+        try:
+            ai_response = get_ai_response(conversation_history)
+        except Exception as e:
+            return Response(
+                {"error": f"An error occurred while getting AI response: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         # Save the AI's response as a message in the conversation
         ai_message_data = {
@@ -114,6 +128,11 @@ class ClientConversationView(APIView):
             return Response(
                 {"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND
             )
+        except Exception as e:
+            return Response(
+                {"error": f"An error occurred while accessing the client: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             # Get the conversation for the client
@@ -122,6 +141,13 @@ class ClientConversationView(APIView):
             return Response(
                 {"error": "Conversation not found for this client."},
                 status=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception as e:
+            return Response(
+                {
+                    "error": f"An error occurred while accessing the conversation: {str(e)}"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Get all messages related to the conversation
@@ -140,11 +166,6 @@ class ClientConversationView(APIView):
         return Response(conversation_data, status=status.HTTP_200_OK)
 
 
-from django.shortcuts import get_object_or_404, redirect, render
-from django.utils import timezone
-from django.conf import settings
-
-
 def chat_view(self, request, conversation_id):
     """Custom view to display the conversation as a chat interface and handle user input."""
     conversation = get_object_or_404(Conversation, id=conversation_id)
@@ -154,6 +175,15 @@ def chat_view(self, request, conversation_id):
         # Get the user's message from the input form
         user_message = request.POST.get("message_content")
 
+        if not user_message:
+            error_message = "Iltimos, xabar kiriting."
+            context = {
+                "conversation": conversation,
+                "messages": messages,
+                "error_message": error_message,
+            }
+            return render(request, "admin/conversation_chat.html", context)
+
         # Create a new message object for the client message
         Message.objects.create(
             conversation=conversation,
@@ -162,11 +192,15 @@ def chat_view(self, request, conversation_id):
             timestamp=timezone.now(),
         )
 
-        # Simulate AI response (you can replace this with actual AI integration)
-        ai_response = get_ai_response(
-            user_message,
-            extra_data="\nyou are now answering for reporters of daryo not for ordinary client\n",
-        )
+        # Attempt to get the AI response
+        try:
+            ai_response = get_ai_response(
+                user_message,
+                extra_data="\nyou are now answering for reporters of daryo not for ordinary client\n",
+            )
+        except Exception as e:
+            print(f"Error getting AI response: {e}")
+            ai_response = "Kechirasiz, hozirda javob bera olmadim."
 
         # Create a new message object for the AI response
         Message.objects.create(

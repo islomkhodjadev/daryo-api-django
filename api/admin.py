@@ -1,33 +1,22 @@
 from django.urls import path
 from django.utils.safestring import mark_safe
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.contrib import admin
-from .models import Client, Conversation, Message, Muhbir, UsageLimit
+from django.utils import timezone
+from .models import Client, Conversation, Message, Muhbir, UsageLimit, APIKey
+from .utils import get_ai_response, content
 
 
-from .models import APIKey
-
-
+# APIKey Admin
 @admin.register(APIKey)
 class APIKeyAdmin(admin.ModelAdmin):
-    list_display = (
-        "key",
-        "created_at",
-        "is_active",
-    )  # Show these fields in the admin list
-    readonly_fields = ("key", "created_at")  # Make API key and creation date read-only
-    list_filter = ("is_active",)  # Filter by active/inactive status
-    search_fields = ("key",)  # Allow searching by API key
+    list_display = ("key", "created_at", "is_active")
+    readonly_fields = ("key", "created_at")
+    list_filter = ("is_active",)
+    search_fields = ("key",)
 
 
-from django.urls import path
-from django.utils.safestring import mark_safe
-from django.shortcuts import render, redirect
-from .models import Client, Conversation, Message
-from django.utils import timezone
-from .utils import get_ai_response
-
-
+# Conversation Admin
 class ConversationAdmin(admin.ModelAdmin):
     """
     Custom admin to display conversations with an extra link to a chat view.
@@ -39,22 +28,14 @@ class ConversationAdmin(admin.ModelAdmin):
     list_filter = ("created_at", "client__is_muhbir")
 
     def get_queryset(self, request):
-        """
-        Override the queryset to ensure that Muhbirs only see their own conversation.
-        Admins still see everything.
-        """
         qs = super().get_queryset(request)
         if request.user.is_superuser:
-            return qs  # Superusers see all conversations
-        else:
-            try:
-                # Limit Muhbir to see only their own conversation
-                client = request.user.muhbir.client
-                if client.is_muhbir:
-                    return qs.filter(client=client)
-                return qs.none()
-            except Client.DoesNotExist:
-                return qs.none()
+            return qs
+        try:
+            client = request.user.muhbir.client
+            return qs.filter(client=client) if client.is_muhbir else qs.none()
+        except Client.DoesNotExist:
+            return qs.none()
 
     def view_chat_link(self, obj):
         """Adds a link to the custom conversation chat view"""
@@ -75,20 +56,18 @@ class ConversationAdmin(admin.ModelAdmin):
 
     def chat_view(self, request, conversation_id):
         """Custom view to display the conversation as a chat interface and handle user input."""
-        conversation = Conversation.objects.get(id=conversation_id)
+        try:
+            conversation = Conversation.objects.get(id=conversation_id)
+        except Conversation.DoesNotExist:
+            return render(request, "admin/conversation_not_found.html")
+
         messages = conversation.messages.all().order_by("timestamp")
 
         if request.method == "POST":
-            # Check if the client can still send messages today
             if not conversation.can_send_message():
-                # If the client has reached their daily limit, send an error message
                 time_remaining = conversation.time_until_reset()
-
-                # Convert the time remaining into hours and minutes
                 hours, remainder = divmod(time_remaining.seconds, 3600)
                 minutes, _ = divmod(remainder, 60)
-
-                # Error message with time until reset
                 error_message = f"Sizda kunlik limit tugadi. Iltimos, {hours} soat va {minutes} minutdan keyin yana urinib ko'ring."
                 context = {
                     "conversation": conversation,
@@ -96,10 +75,17 @@ class ConversationAdmin(admin.ModelAdmin):
                     "error_message": error_message,
                 }
                 return render(request, "admin/conversation_chat.html", context)
-            # Get the Muhbir's message from the input form
-            user_message = request.POST.get("message_content")
 
-            # Create a new message object for the client message
+            user_message = request.POST.get("message_content", "").strip()
+            if not user_message:
+                error_message = "Iltimos, xabar kiriting."
+                context = {
+                    "conversation": conversation,
+                    "messages": messages,
+                    "error_message": error_message,
+                }
+                return render(request, "admin/conversation_chat.html", context)
+
             Message.objects.create(
                 conversation=conversation,
                 sender="client",
@@ -107,13 +93,15 @@ class ConversationAdmin(admin.ModelAdmin):
                 timestamp=timezone.now(),
             )
 
-            # Simulate AI response (you can replace this with actual AI integration)
-            ai_response = get_ai_response(
-                user_message,
-                extra_data="\nyou are now responding to reporters of daro\n",
-            )
+            try:
+                ai_response = get_ai_response(
+                    conversation.get_all_messages_str,
+                    extra_data="\nyou are now responding to reporters of daro\n",
+                )
+            except Exception as e:
+                print(f"Error getting AI response: {e}")
+                ai_response = "Kechirasiz, hozirda javob bera olmadim."
 
-            # Create a new message object for the AI response
             Message.objects.create(
                 conversation=conversation,
                 sender="ai",
@@ -121,53 +109,83 @@ class ConversationAdmin(admin.ModelAdmin):
                 timestamp=timezone.now(),
             )
 
-            # Redirect to the same chat view to display the updated messages
             return redirect(request.path)
 
         context = {"conversation": conversation, "messages": messages}
         return render(request, "admin/conversation_chat.html", context)
 
 
+# Muhbir Admin
 @admin.register(Muhbir)
 class MuhbirAdmin(admin.ModelAdmin):
     list_display = ("user", "client")
     search_fields = ("user__username", "client__name")
 
     def get_queryset(self, request):
-        """
-        Superusers see all Muhbirs, but each Muhbir can only see their own client.
-        """
         qs = super().get_queryset(request)
         if request.user.is_superuser:
-            return qs  # Superusers can see all
-        else:
-            return qs.filter(user=request.user)  # Muhbirs only see themselves
+            return qs
+        return qs.filter(user=request.user)
 
 
+# Client Admin
 @admin.register(Client)
 class ClientAdmin(admin.ModelAdmin):
     """
     Admin interface for managing clients.
     """
 
-    list_display = (
-        "name",
-        "email",
-        "external_id",
-        "is_muhbir",
-        "created_at",
-    )
+    list_display = ("name", "email", "external_id", "is_muhbir", "created_at")
     search_fields = ("name", "email", "external_id")
-    list_filter = (
-        "is_muhbir",
-        "created_at",
-    )  # Add filters for is_muhbir and created_at
+    list_filter = ("is_muhbir", "created_at")
 
 
-admin.site.register(Conversation, ConversationAdmin)
+def calculate_tokens(content):
+    """
+    Estimate the number of tokens used based on the content length.
+    This is a simplified approximation.
+    """
+    return len(content) // 4 + 1  # Adjust as needed based on your tokenization strategy
 
 
+# Usage Limit Admin
 @admin.register(UsageLimit)
 class UsageLimitAdmin(admin.ModelAdmin):
-    list_display = ("is_muhbir", "daily_limit")
+    list_display = ("is_muhbir", "daily_limit", "total_tokens_spent", "price")
     list_filter = ("is_muhbir",)
+
+    def total_tokens_spent(self, obj):
+        """Calculate total tokens spent by clients based on message content."""
+        messages = Message.objects.filter(conversation__client__is_muhbir=obj.is_muhbir)
+
+        total_input_tokens = 0
+        total_output_tokens = 0
+        extra_text = content  # Extra text to append for input tokens
+
+        # Build a full conversation history string
+        history = ""
+        for message in messages:
+            if message.sender == "ai":
+                total_output_tokens += calculate_tokens(message.content)
+                history += f"AI: {message.content}\n"
+            else:
+                history += f"User: {message.content}\n"
+                input_content = history + extra_text  # Include history and extra text
+                total_input_tokens += calculate_tokens(input_content)
+
+        return total_input_tokens, total_output_tokens
+
+    def price(self, obj):
+        """Calculate the total cost based on token usage."""
+        input_tokens, output_tokens = self.total_tokens_spent(obj)
+
+        input_price = (input_tokens / 1_000_000) * 0.150  # Cost for input tokens
+        output_price = (output_tokens / 1_000_000) * 0.600  # Cost for output tokens
+
+        return f"{input_price + output_price:.4f} $"  # Total price
+
+    total_tokens_spent.short_description = "Total Tokens Spent (Input/Output)"
+    price.short_description = "Total Cost"
+
+
+# Token Calculation Function
