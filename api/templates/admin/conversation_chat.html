@@ -85,11 +85,14 @@
 
 </div>
 
-<!-- Input form to send message -->
-<form method="POST" class="chat-input-container">
-    {% csrf_token %}
-    <input type="text" name="message_content" class="chat-input" placeholder="Type your message here..." required />
-    <button type="submit" class="send-btn">Send</button>
-</form>
+{% if request.user.is_authenticated and request.user == conversation.client.muhbir.user %}
+    <form method="POST" class="chat-input-container">
+        {% csrf_token %}
+        <input type="text" name="message_content" class="chat-input" placeholder="Type your message here..." required />
+        <button type="submit" class="send-btn">Send</button>
+    </form>
+{% else %}
+    <p>You do not have permission to send messages in this conversation.</p>
+{% endif %}
 
 {% endblock %}
