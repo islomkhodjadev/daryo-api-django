@@ -17,6 +17,7 @@ class APIKeyAdmin(admin.ModelAdmin):
 
 
 # Conversation Admin
+@admin.register(Conversation)
 class ConversationAdmin(admin.ModelAdmin):
     """
     Custom admin to display conversations with an extra link to a chat view.
