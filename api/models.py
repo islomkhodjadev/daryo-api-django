@@ -28,11 +28,35 @@ class APIKey(models.Model):
         super().save(*args, **kwargs)
 
 
+class UsageLimit(models.Model):
+    """
+    Model representing daily message limits for different types of clients.
+    """
+
+    is_muhbir = models.BooleanField(
+        default=False
+    )  # True for Muhbirs, False for regular clients
+    daily_limit = models.IntegerField(default=20)  # Default limit for ordinary clients
+
+    def __str__(self):
+        client_type = "Muhbir" if self.is_muhbir else "Ordinary Client"
+        return f"{client_type}: {self.daily_limit} messages per day"
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["is_muhbir"], name="unique_usage_limit_for_client_type"
+            )
+        ]
+
+
 class Client(models.Model):
     """
     Model representing a client who is interacting with the AI.
     Includes an external ID for referencing the client from another database.
     """
+
+    is_muhbir = models.BooleanField(default=False)
 
     external_id = models.CharField(
         max_length=255, unique=True
@@ -47,6 +71,9 @@ class Client(models.Model):
 
     def __str__(self):
         return f"Client: {self.name} (External ID: {self.external_id})"
+
+
+from django.conf import settings
 
 
 class Conversation(models.Model):
@@ -67,7 +94,7 @@ class Conversation(models.Model):
 
     def get_chat_url(self):
         """Generates the URL for the custom chat view"""
-        return f"/daryo-api/admin/api/conversation/{self.id}/chat/"
+        return f"/{settings.BASE_URL}/admin/api/conversation/{self.id}/chat/"
 
     @property
     def get_all_messages_str(self):
@@ -89,7 +116,7 @@ class Conversation(models.Model):
 
     def daily_usage(self):
         """
-        Get the number of requests (messages) sent by the client today.
+        Get the number of messages sent by the client today.
         """
         today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
         today_end = today_start + timedelta(days=1)
@@ -100,9 +127,30 @@ class Conversation(models.Model):
 
     def can_send_message(self):
         """
-        Check if the client can still send messages today (max 20 per day).
+        Check if the client can still send messages today based on their usage limit.
         """
-        return self.daily_usage() < 20
+        if self.client.is_muhbir:
+            # Fetch the usage limit for Muhbirs
+            usage_limit = UsageLimit.objects.get(is_muhbir=True).daily_limit
+        else:
+            # Fetch the usage limit for ordinary clients
+            usage_limit = UsageLimit.objects.get(is_muhbir=False).daily_limit
+
+        return self.daily_usage() < usage_limit
+
+    def time_until_reset(self):
+        """
+        Calculate the time remaining until midnight (when the message limit resets).
+        """
+        now = timezone.now()
+        # Find the next midnight
+        midnight = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(
+            days=1
+        )
+        time_remaining = midnight - now
+
+        # Return the time remaining as a timedelta object
+        return time_remaining
 
 
 class Message(models.Model):
@@ -127,3 +175,20 @@ class Message(models.Model):
 
     class Meta:
         ordering = ["timestamp"]  # Messages ordered by time
+
+
+class Muhbir(models.Model):
+    """
+    Model representing a Muhbir (user) who can access their conversation.
+    Each Muhbir is linked to a Client.
+    """
+
+    user = models.OneToOneField(
+        "auth.User", on_delete=models.CASCADE
+    )  # Links to the Django User model
+    client = models.OneToOneField(
+        Client, on_delete=models.CASCADE
+    )  # Links to the Client model
+
+    def __str__(self):
+        return f"Muhbir: {self.user.username}"

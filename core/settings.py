@@ -3,7 +3,7 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
+BASE_URL = "daryo-api"
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
@@ -28,14 +28,14 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "rest_framework.authtoken",
-    'corsheaders',
+    "corsheaders",
     "api",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
-    'corsheaders.middleware.CorsMiddleware', 
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -111,12 +111,12 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 import os
 
-MEDIA_URL = 'daryo-api/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_URL = f"{BASE_URL}/media/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
-STATIC_URL =  'daryo-api/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'static')
-#STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+STATIC_URL = f"{BASE_URL}/static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "static")
+# STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 
 
 # Default primary key field type
@@ -147,14 +147,14 @@ JAZZMIN_SETTINGS = {
 
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_METHODS = [
-    'GET',
-    'POST',
-    'PUT',
-    'DELETE',
-    'OPTIONS',
+    "GET",
+    "POST",
+    "PUT",
+    "DELETE",
+    "OPTIONS",
 ]
 CORS_ALLOW_HEADERS = [
-    'Authorization',
-    'X-API-KEY',
-    'Content-Type',
+    "Authorization",
+    "X-API-KEY",
+    "Content-Type",
 ]

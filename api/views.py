@@ -138,3 +138,46 @@ class ClientConversationView(APIView):
         }
 
         return Response(conversation_data, status=status.HTTP_200_OK)
+
+
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.conf import settings
+
+
+def chat_view(self, request, conversation_id):
+    """Custom view to display the conversation as a chat interface and handle user input."""
+    conversation = get_object_or_404(Conversation, id=conversation_id)
+    messages = conversation.messages.all().order_by("timestamp")
+
+    if request.method == "POST":
+        # Get the user's message from the input form
+        user_message = request.POST.get("message_content")
+
+        # Create a new message object for the client message
+        Message.objects.create(
+            conversation=conversation,
+            sender="client",
+            content=user_message,
+            timestamp=timezone.now(),
+        )
+
+        # Simulate AI response (you can replace this with actual AI integration)
+        ai_response = get_ai_response(
+            user_message,
+            extra_data="\nyou are now answering for reporters of daryo not for ordinary client\n",
+        )
+
+        # Create a new message object for the AI response
+        Message.objects.create(
+            conversation=conversation,
+            sender="ai",
+            content=ai_response,
+            timestamp=timezone.now(),
+        )
+
+        # Redirect to the same chat view to display the updated messages
+        return redirect(request.path)
+
+    context = {"conversation": conversation, "messages": messages}
+    return render(request, "admin/conversation_chat.html", context)
