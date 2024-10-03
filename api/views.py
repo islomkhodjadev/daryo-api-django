@@ -81,7 +81,10 @@ class ClientConversationView(APIView):
         )  # Fetch the formatted history
 
         try:
-            ai_response = get_ai_response(conversation_history)
+            ai_response = get_ai_response(
+                user_message=user_message, user_history=conversation_history
+            )
+
         except Exception as e:
             return Response(
                 {"error": f"An error occurred while getting AI response: {str(e)}"},

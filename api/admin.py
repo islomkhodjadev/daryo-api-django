@@ -4,7 +4,7 @@ from django.shortcuts import render, redirect
 from django.contrib import admin
 from django.utils import timezone
 from .models import Client, Conversation, Message, Muhbir, UsageLimit, APIKey
-from .utils import get_ai_response, content
+from .utils import get_ai_response, content, content_for_chooser
 
 
 # APIKey Admin
@@ -30,7 +30,10 @@ class ConversationAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        if request.user.is_superuser or request.user.groups.filter(name='DaryoAdmin').exists():
+        if (
+            request.user.is_superuser
+            or request.user.groups.filter(name="DaryoAdmin").exists()
+        ):
             return qs
         try:
             client = request.user.muhbir.client
@@ -96,7 +99,8 @@ class ConversationAdmin(admin.ModelAdmin):
 
             try:
                 ai_response = get_ai_response(
-                    conversation.get_all_messages_str,
+                    user_message=user_message,
+                    user_history=conversation.get_all_messages_str,
                     extra_data="\nyou are now responding to reporters of daro be serious and official you are helper for them, use official emojies\n",
                 )
             except Exception as e:
@@ -161,7 +165,7 @@ class UsageLimitAdmin(admin.ModelAdmin):
 
         total_input_tokens = 0
         total_output_tokens = 0
-        extra_text = content  # Extra text to append for input tokens
+        extra_text = content_for_chooser + content
 
         # Build a full conversation history string
         history = ""
@@ -172,7 +176,9 @@ class UsageLimitAdmin(admin.ModelAdmin):
             else:
                 history += f"User: {message.content}\n"
                 input_content = history + extra_text  # Include history and extra text
-                total_input_tokens += calculate_tokens(input_content)
+                total_input_tokens += (
+                    calculate_tokens(input_content) + AiData.getMeanContentLength()
+                )
 
         return total_input_tokens, total_output_tokens
 
@@ -190,3 +196,18 @@ class UsageLimitAdmin(admin.ModelAdmin):
 
 
 # Token Calculation Function
+from .models import AiData  # Import your AiData model
+
+
+# Define the admin class (optional, for customizing the admin view)
+class AiDataAdmin(admin.ModelAdmin):
+    # List the fields to display in the admin panel
+    list_display = ("id", "heading", "content")
+    # Add search functionality to the heading field
+    search_fields = ("heading",)
+    # Optionally, add filtering options based on fields
+    list_filter = ("heading",)
+
+
+# Register the AiData model with the admin site
+admin.site.register(AiData, AiDataAdmin)

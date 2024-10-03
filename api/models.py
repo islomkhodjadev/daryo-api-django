@@ -192,3 +192,55 @@ class Muhbir(models.Model):
 
     def __str__(self):
         return f"Muhbir: {self.user.username}"
+
+
+from django.core.exceptions import ObjectDoesNotExist
+
+
+class AiData(models.Model):
+    heading = models.TextField()
+    content = models.TextField()
+
+    @classmethod
+    def getData(cls, id):
+        try:
+            id = int(id)
+        except (ValueError, TypeError):
+            return None  # Invalid ID format
+
+        # Safely retrieve data, handling potential errors
+        try:
+            data = cls.objects.get(id=id)
+            return data
+        except ObjectDoesNotExist:
+            return None  # Handle if the object does not exist
+        except Exception as e:
+            # Optionally log the exception or handle other errors
+            return None
+
+    @classmethod
+    def getAllHeadings(cls):
+        # Retrieve all records from the database
+        all_data = cls.objects.all()
+        # Format each record as 'id:{number}-heading:{heading};'
+        result = []
+        for data in all_data:
+            result.append(f"id:({data.id})-heading:({data.heading});")
+        # Return the list of formatted strings
+        return " ".join(result)
+
+    @classmethod
+    def getMeanContentLength(cls):
+        # Retrieve all records
+        all_data = cls.objects.all()
+        # Get the total length of content and count of records
+        total_length = sum(len(data.content) for data in all_data)
+        count = all_data.count()
+
+        # If there are no records, return 0 to avoid division by zero
+        if count == 0:
+            return 0
+
+        # Calculate mean content length
+        mean_length = total_length // count
+        return mean_length

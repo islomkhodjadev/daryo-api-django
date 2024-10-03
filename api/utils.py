@@ -3,14 +3,18 @@ import os
 from openai import OpenAI
 
 from dotenv import load_dotenv
+from .models import AiData
 
 load_dotenv()
 
 import os
 
-content = (
-    open("text.txt").read()
-    + """\n secondly write always including emojies you must use emojies a lot,
+content = """\n 
+some info about daryo:
+Channel Title: Daryo.uz
+Link: https://daryo.uz/en
+Description: Daryo is a comprehensive online news company that delivers the latest information, unbiased analysis, columnists' blogs, and corroborated facts.
+secondly write always including emojies you must use emojies a lot,
     thirdly when writing include your text into these formatting tags only these ones dont use others not any sings like **.
     always remembrer always format your answers accordingly: 
     <b>bold</b>, <strong>bold</strong>
@@ -26,12 +30,41 @@ content = (
 <pre>pre-formatted fixed-width code block</pre>
 <pre><code class="language-python">pre-formatted fixed-width code block written in the Python programming language</code></pre>
 <blockquote>Block quotation started\nBlock quotation continued\nThe last line of the block quotation</blockquote>
-<blockquote expandable>Expandable block quotation started\nExpandable block quotation continued\nExpandable block quotation continued\nHidden by default part of the block quotation started\nExpandable block quotation continued\nThe last line of the block quotation</blockquote>"""
+<blockquote expandable>Expandable block quotation started\nExpandable block quotation continued\nExpandable block quotation continued\nHidden by default part of the block quotation started\nExpandable block quotation continued\nThe last line of the block quotation</blockquote>
+
+
+here is is info you should know and answer from:\n
+"""
+
+
+content_for_chooser = (
+    """
+your main and only goal is to choose relative data heading  
+and returning it's id, dont return other thing just id of choosen heading if doesnt exists 
+then -1 or you can return id which is similiar or relative to question in the worst the worst case return -1 , you must return only number not other thing in any case here are the 
+headings from which yous hould choose, data will be in "id:({data.id})-heading:({data.heading});" format here are they:::
+"""
+    + AiData.getAllHeadings()
 )
 
 
-def get_ai_response(user_message, content=content, extra_data=None):
+def get_ai_response(user_message, user_history, content=content, extra_data=None):
     client = OpenAI(api_key=os.getenv("gpt_token"))
+
+    completion = client.chat.completions.create(
+        model="gpt-4o-mini",
+        temperature=0.4,
+        messages=[
+            {"role": "system", "content": content_for_chooser},
+            {"role": "user", "content": user_message},
+        ],
+    )
+
+    ai_response = completion.choices[0].message
+    data = AiData.getData(ai_response.content)
+    print(ai_response.content)
+    if data is None:
+        return "Kechirasiz, siz qidirgan ma'lumot bizda mavjud emas"
 
     if extra_data is not None:
         content += extra_data
@@ -40,8 +73,8 @@ def get_ai_response(user_message, content=content, extra_data=None):
         model="gpt-4o-mini",
         temperature=0.4,
         messages=[
-            {"role": "system", "content": content},
-            {"role": "user", "content": user_message},
+            {"role": "system", "content": content + data.content},
+            {"role": "user", "content": user_history},
         ],
     )
 
