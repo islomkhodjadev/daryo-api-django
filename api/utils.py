@@ -40,8 +40,8 @@ here is is info you should know and answer from:\n
 content_for_chooser = (
     """
 your main and only goal is to choose relative data heading  
-and returning it's id, dont return other thing just id of choosen heading if doesnt exists 
-then -1 or you can return id which is similiar or relative to question in the worst the worst case return -1 , you must return only number not other thing in any case here are the 
+and returning it's id the number only id number not any other characters only the id number e.g like id:(0) you shoulld return the number 0 only inside, dont return other thing just id of choosen heading if doesnt exists 
+then you can return id which is similiar or relative to question in the worst the worst case return the relative similiar id , you must return only number not other thing in any case here are the 
 headings from which yous hould choose, data will be in "id:({data.id})-heading:({data.heading});" format here are they:::
 """
     + AiData.getAllHeadings()
@@ -61,10 +61,12 @@ def get_ai_response(user_message, user_history, content=content, extra_data=None
     )
 
     ai_response = completion.choices[0].message
-    data = AiData.getData(ai_response.content)
     print(ai_response.content)
-    if data is None:
-        return "Kechirasiz, siz qidirgan ma'lumot bizda mavjud emas"
+    data = AiData.getData(ai_response.content)
+    print(data)
+    permanent_data = content
+    if data is not None:
+        permanent_data += data.content
 
     if extra_data is not None:
         content += extra_data
@@ -73,7 +75,7 @@ def get_ai_response(user_message, user_history, content=content, extra_data=None
         model="gpt-4o-mini",
         temperature=0.4,
         messages=[
-            {"role": "system", "content": content + data.content},
+            {"role": "system", "content": permanent_data},
             {"role": "user", "content": user_history},
         ],
     )
