@@ -229,6 +229,20 @@ class AiData(models.Model):
         # Return the list of formatted strings
         return " ".join(result)
 
+
+
+    @classmethod
+    def getAllHeadingsLength(cls):
+        # Retrieve all records from the database
+        all_data = cls.objects.all()
+        # Format each record as 'id:{number}-heading:{heading};'
+        result = []
+        for data in all_data:
+            result.append(f"id:({data.id})-heading:({data.heading});")
+        # Return the list of formatted strings
+        return len(" ".join(result))
+
+
     @classmethod
     def getMeanContentLength(cls):
         # Retrieve all records

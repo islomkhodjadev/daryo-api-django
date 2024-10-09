@@ -178,7 +178,7 @@ class UsageLimitAdmin(admin.ModelAdmin):
                 input_content = history + extra_text  # Include history and extra text
                 total_input_tokens += (
                     calculate_tokens(input_content) + AiData.getMeanContentLength()
-                )
+                + calculate_tokens(AiData.getAllHeadings()))
 
         return total_input_tokens, total_output_tokens
 
