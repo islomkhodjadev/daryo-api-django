@@ -153,10 +153,20 @@ def calculate_tokens(content):
     return len(content) // 4 + 1  # Adjust as needed based on your tokenization strategy
 
 
+from django.db import models
+
+
 # Usage Limit Admin
 @admin.register(UsageLimit)
 class UsageLimitAdmin(admin.ModelAdmin):
-    list_display = ("is_muhbir", "daily_limit", "total_tokens_spent", "price")
+    list_display = (
+        "is_muhbir",
+        "daily_limit",
+        "total_tokens_spent",
+        "price",
+        "heading_token_count",
+        "average_content_token_size",
+    )
     list_filter = ("is_muhbir",)
 
     def total_tokens_spent(self, obj):
@@ -184,6 +194,33 @@ class UsageLimitAdmin(admin.ModelAdmin):
 
         return total_input_tokens, total_output_tokens
 
+    def heading_token_count(self, obj):
+        """Calculate the total tokens for headings (heading length // 4)."""
+        total_heading_length = (
+            AiData.objects.all().aggregate(
+                total=models.Sum(models.functions.Length("heading"))
+            )["total"]
+            or 0
+        )
+        return total_heading_length // 4  # Estimate total tokens by dividing by 4
+
+    def average_content_token_size(self, obj):
+        """Calculate the average tokens for content (average content length // 4)."""
+        total_content_length = (
+            AiData.objects.all().aggregate(
+                total=models.Sum(models.functions.Length("content"))
+            )["total"]
+            or 0
+        )
+        content_count = AiData.objects.count()
+
+        if content_count > 0:
+            average_content_length = total_content_length // content_count
+            return (
+                average_content_length // 4
+            )  # Estimate average tokens by dividing by 4
+        return 0
+
     def price(self, obj):
         """Calculate the total cost based on token usage."""
         input_tokens, output_tokens = self.total_tokens_spent(obj)
@@ -195,6 +232,8 @@ class UsageLimitAdmin(admin.ModelAdmin):
 
     total_tokens_spent.short_description = "Total Tokens Spent (Input/Output)"
     price.short_description = "Total Cost"
+    heading_token_count.short_description = "Total Heading Tokens"
+    average_content_token_size.short_description = "Average Content Token Size"
 
 
 from django.urls import path
