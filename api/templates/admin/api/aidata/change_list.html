@@ -1,0 +1,15 @@
+{% extends "admin/change_list.html" %}
+
+{% block object-tools %}
+{{ block.super }}
+<div class="object-tools">
+    <ul class="object-tools">
+        <li>
+            <a class="btn btn-primary" href="{% url 'admin:upload_data' %}"
+                style="font-size: 16px; padding: 8px 15px; border-radius: 5px;">
+                📁 Upload Data
+            </a>
+        </li>
+    </ul>
+</div>
+{% endblock %}

@@ -177,8 +177,10 @@ class UsageLimitAdmin(admin.ModelAdmin):
                 history += f"User: {message.content}\n"
                 input_content = history + extra_text  # Include history and extra text
                 total_input_tokens += (
-                    calculate_tokens(input_content) + AiData.getMeanContentLength()
-                + calculate_tokens(AiData.getAllHeadings()))
+                    calculate_tokens(input_content)
+                    + AiData.getMeanContentLength()
+                    + calculate_tokens(AiData.getAllHeadings())
+                )
 
         return total_input_tokens, total_output_tokens
 
@@ -195,19 +197,75 @@ class UsageLimitAdmin(admin.ModelAdmin):
     price.short_description = "Total Cost"
 
 
-# Token Calculation Function
-from .models import AiData  # Import your AiData model
+from django.urls import path
+from django.shortcuts import render, redirect
+from django.contrib import admin, messages
+import pandas as pd
+from .models import AiData
+from .forms import ExcelUploadForm
+from django.utils.html import format_html
 
 
-# Define the admin class (optional, for customizing the admin view)
+@admin.register(AiData)
 class AiDataAdmin(admin.ModelAdmin):
-    # List the fields to display in the admin panel
     list_display = ("id", "heading", "content")
-    # Add search functionality to the heading field
     search_fields = ("heading",)
-    # Optionally, add filtering options based on fields
-    list_filter = ("heading",)
 
+    # Add a custom URL for the upload form
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                "upload-data/",
+                self.admin_site.admin_view(self.upload_data),
+                name="upload_data",
+            ),
+        ]
+        return custom_urls + urls
 
-# Register the AiData model with the admin site
-admin.site.register(AiData, AiDataAdmin)
+    # Add the custom link to the changelist page
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        extra_context["upload_data_url"] = "admin:upload_data"
+        return super().changelist_view(request, extra_context=extra_context)
+
+    # Function to handle the data upload
+    def upload_data(self, request):
+        if request.method == "POST":
+            form = ExcelUploadForm(request.POST, request.FILES)
+            if form.is_valid():
+                excel_file = request.FILES["excel_file"]
+                try:
+                    # Read the Excel file into a pandas DataFrame
+                    df = pd.read_excel(excel_file)
+
+                    # Check for required columns 'heading' and 'content'
+                    if "heading" in df.columns and "content" in df.columns:
+                        # Insert each row from the Excel file into the AiData model
+                        for index, row in df.iterrows():
+                            AiData.objects.create(
+                                heading=row["heading"], content=row["content"]
+                            )
+                        messages.success(request, "Data uploaded successfully!")
+                        return redirect("..")
+                    else:
+                        messages.error(
+                            request,
+                            "The Excel file must contain 'heading' and 'content' columns.",
+                        )
+                except Exception as e:
+                    messages.error(request, f"Error processing file: {e}")
+        else:
+            form = ExcelUploadForm()
+
+        context = {"form": form}
+        return render(request, "admin/upload_data.html", context)
+
+    # Add a method to display the link on the changelist page
+    def changelist_upload_button(self, obj):
+        return format_html(
+            '<a class="button" href="{}">Upload Data</a>',
+            "/admin/api/aidata/upload-data/",
+        )
+
+    changelist_upload_button.short_description = "Upload Data"

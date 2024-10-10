@@ -1,0 +1,32 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h2 class="mb-0">📁 Upload Excel Data</h2>
+        </div>
+        <div class="card-body">
+            <p class="mb-4">Please upload an Excel file containing two columns: <strong>'heading'</strong> and
+                <strong>'content'</strong>.
+            </p>
+
+            <form method="post" enctype="multipart/form-data" class="form-inline">
+                {% csrf_token %}
+                <div class="form-group mb-3">
+                    {{ form.excel_file.label_tag }}:
+                    <div class="input-group">
+                        <input type="file" class="form-control" name="excel_file" id="excel_file">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-success">📤 Upload</button>
+            </form>
+        </div>
+        <div class="card-footer text-muted">
+            <small>Ensure that the Excel file is formatted correctly with 'heading' and 'content' columns before
+                uploading.</small>
+        </div>
+    </div>
+</div>
+{% endblock %}
