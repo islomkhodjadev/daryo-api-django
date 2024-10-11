@@ -3,7 +3,7 @@ import os
 from openai import OpenAI
 
 from dotenv import load_dotenv
-from .models import AiData
+from .models import AiData, Category, Conversation
 
 load_dotenv()
 
@@ -45,47 +45,143 @@ here is is info you should know and answer from:\n
 """
 
 
-content_for_chooser = (
-    """
-your main and only goal is to choose relative data heading  
-and returning it's id the number only id number not any other characters only the id number e.g like id:(0) you shoulld return the number 0 only inside, dont return other thing just id of choosen heading if doesnt exists 
-then you can return id which is similiar or relative to question in the worst the worst case return the relative similiar id , you must return only number not other thing in any case here are the 
-headings from which yous hould choose, data will be in "id:({data.id})-heading:({data.heading});" format here are they:::
-"""
-    + AiData.getAllHeadings()
-)
+def ai(content, user_message):
 
-
-def get_ai_response(user_message, user_history, content=content, extra_data=None):
     client = OpenAI(api_key=os.getenv("gpt_token"))
 
     completion = client.chat.completions.create(
         model="gpt-4o-mini",
         temperature=0.4,
         messages=[
-            {"role": "system", "content": content_for_chooser},
+            {"role": "system", "content": content},
             {"role": "user", "content": user_message},
         ],
     )
 
     ai_response = completion.choices[0].message
-    data = AiData.getData(ai_response.content)
-    permanent_data = content
-    if data is not None:
-        permanent_data += data.content
+    return ai_response.content
 
-    if extra_data is not None:
-        content += extra_data
 
-    completion = client.chat.completions.create(
-        model="gpt-4o-mini",
-        temperature=0.4,
-        messages=[
-            {"role": "system", "content": permanent_data},
-            {"role": "user", "content": user_history},
-        ],
+def chooseOne(user_message):
+    global content
+
+    permanent_content = content
+
+    content_for_chooser = (
+        """
+    your main and only goal is to choose relative data category  
+    and returning it's id the number only id number not any other characters only the id number e.g like id:(0) you shoulld return the number 0 only inside, dont return other thing just id of choosen category if doesnt exists 
+    then you can return id which is similiar or relative to question in the worst the worst case return the relative similiar id , you must return only number not other thing in any case here are the 
+    headings from which yous should choose, data will be in "id:({data.id})-category:({data.category});" format here are they:::
+    """
+        + Category.getAllCategories()
     )
 
-    ai_response = completion.choices[0].message
+    category = Category.getData(ai(content_for_chooser, user_message))
 
-    return ai_response.content
+    if category is not None:
+
+        content_for_chooser = """
+        your main and only goal is to choose relative data heading  
+        and returning it's id the number only id number not any other characters only the id number e.g like id:(0) you shoulld return the number 0 only inside, dont return other thing just id of choosen heading if doesnt exists 
+        then you can return id which is similiar or relative to question in the worst the worst case return the relative similiar id , you must return only number not other thing in any case here are the 
+        headings from which yous should choose, data will be in "id:({data.id})-category:({data.heading});" format here are they:::
+        """ + AiData.getAllHeadingsByCat(
+            category.id
+        )
+
+        aidata = AiData.getData(ai(content_for_chooser, user_message))
+
+        if content is not None:
+            permanent_content += aidata.content
+
+    return permanent_content
+
+
+from django.conf import settings
+
+
+def get_ai_response(user_message, user_history):
+
+    permanent_data = chooseOne(user_message)
+    if settings.HISTORY_ALLOWED:
+        user_message = user_history
+
+    answer = ai(permanent_data, user_message)
+
+    return answer
+
+
+from functools import lru_cache
+
+
+def token_size_calculate(user_history):
+    global content
+
+    length = len(content)
+
+    content_for_chooser = (
+        """
+    your main and only goal is to choose relative data category  
+    and returning it's id the number only id number not any other characters only the id number e.g like id:(0) you shoulld return the number 0 only inside, dont return other thing just id of choosen category if doesnt exists 
+    then you can return id which is similiar or relative to question in the worst the worst case return the relative similiar id , you must return only number not other thing in any case here are the 
+    headings from which yous should choose, data will be in "id:({data.id})-category:({data.category});" format here are they:::
+    """
+        + Category.getAllCategories()
+    )
+
+    length += len(content_for_chooser)
+
+    content_for_chooser = """
+        your main and only goal is to choose relative data heading  
+        and returning it's id the number only id number not any other characters only the id number e.g like id:(0) you shoulld return the number 0 only inside, dont return other thing just id of choosen heading if doesnt exists 
+        then you can return id which is similiar or relative to question in the worst the worst case return the relative similiar id , you must return only number not other thing in any case here are the 
+        headings from which yous should choose, data will be in "id:({data.id})-category:({data.heading});" format here are they:::
+        """
+
+    length += len(content_for_chooser)
+
+    token_size = length // 4
+
+    token_size += Category.calculate_average_headings_token_by_cat()
+    token_size += AiData.getMeanContentLength() // 4
+
+    if settings.HISTORY_ALLOWED:
+        token_size += len(user_history) // 4
+
+    return token_size
+
+
+def avarage_request_token_size():
+
+    length = len(content)
+
+    content_for_chooser = (
+        """
+    your main and only goal is to choose relative data category  
+    and returning it's id the number only id number not any other characters only the id number e.g like id:(0) you shoulld return the number 0 only inside, dont return other thing just id of choosen category if doesnt exists 
+    then you can return id which is similiar or relative to question in the worst the worst case return the relative similiar id , you must return only number not other thing in any case here are the 
+    headings from which yous should choose, data will be in "id:({data.id})-category:({data.category});" format here are they:::
+    """
+        + Category.getAllCategories()
+    )
+
+    length += len(content_for_chooser)
+
+    content_for_chooser = """
+        your main and only goal is to choose relative data heading  
+        and returning it's id the number only id number not any other characters only the id number e.g like id:(0) you shoulld return the number 0 only inside, dont return other thing just id of choosen heading if doesnt exists 
+        then you can return id which is similiar or relative to question in the worst the worst case return the relative similiar id , you must return only number not other thing in any case here are the 
+        headings from which yous should choose, data will be in "id:({data.id})-category:({data.heading});" format here are they:::
+        """
+
+    length += len(content_for_chooser)
+
+    token_size = length // 4
+
+    token_size += Category.calculate_average_headings_token_by_cat()
+    token_size += AiData.getMeanContentLength() // 4
+    if settings.HISTORY_ALLOWED:
+        token_size += Conversation.get_avarage_token_size_for_history()
+
+    return token_size

@@ -98,12 +98,8 @@ class Conversation(models.Model):
 
     @property
     def get_all_messages_str(self):
-        # Retrieve all messages related to this conversation
-        messages = (
-            self.messages.all()
-        )  # 'messages' is the related_name from the Message model
+        messages = self.messages.all()
 
-        # Build a formatted string with time, sender, and content
         message_list = []
         for message in messages:
             timestamp = message.timestamp.strftime("%Y-%m-%d %H:%M:%S")
@@ -111,8 +107,20 @@ class Conversation(models.Model):
             formatted_message = f"{timestamp} - {sender}: {message.content}"
             message_list.append(formatted_message)
 
-        # Join the messages into a single string separated by newlines
         return "\n".join(message_list)
+
+    @classmethod
+    def get_avarage_token_size_for_history(cls):
+        convers = cls.objects.all()
+        count = convers.count()
+
+        total_length = (
+            sum([len(con.get_all_messages_str) for con in convers]) // count
+            if count != 0
+            else 0
+        )
+
+        return total_length // 4
 
     def daily_usage(self):
         """
@@ -197,7 +205,82 @@ class Muhbir(models.Model):
 from django.core.exceptions import ObjectDoesNotExist
 
 
+class Category(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+
+    @classmethod
+    def getAllCategories(cls):
+        # Retrieve all records from the database
+        all_data = cls.objects.all()
+        # Format each record as 'id:{number}-heading:{heading};'
+        result = []
+        for data in all_data:
+            result.append(f"id:({data.id})-category:({data.name});")
+        # Return the list of formatted strings
+        return " ".join(result)
+
+    @classmethod
+    def getData(cls, id):
+        try:
+            id = int(id)
+        except (ValueError, TypeError):
+            return None  # Invalid ID format
+
+        # Safely retrieve data, handling potential errors
+        try:
+            data = cls.objects.get(id=id)
+            return data
+        except ObjectDoesNotExist:
+            return None  # Handle if the object does not exist
+        except Exception as e:
+            # Optionally log the exception or handle other errors
+            return None
+
+    @classmethod
+    def calculate_avarage_cat_token_size(cls):
+        # Retrieve all records
+        all_data = cls.objects.all()
+
+        # Get the total number of categories
+        total_categories = all_data.count()
+
+        if total_categories == 0:
+            return 0  # Avoid division by zero if there are no categories
+
+        # Calculate the total length of all category names combined
+        total_length = sum(len(data.name) for data in all_data)
+
+        # Calculate the average token size, dividing by total categories and then by 4
+        average_token_size = (total_length / total_categories) // 4
+
+        return average_token_size
+
+    @classmethod
+    def calculate_average_headings_token_by_cat(cls):
+        """
+        Calculate the average token size for headings across all categories.
+        This method calculates the total token size for articles in each category,
+        then averages it across all categories.
+        """
+        cats = cls.objects.all()
+
+        if not cats.exists():
+            return 0  # Return 0 if there are no categories
+
+        total_tokens = 0
+        total_categories = cats.count()
+
+        for cat in cats:
+
+            token_size_for_cat = AiData.get_token_size_by_category(category_id=cat.id)
+            total_tokens += token_size_for_cat
+
+        # Return the average token size for headings across all categories
+        return total_tokens // total_categories if total_categories > 0 else 0
+
+
 class AiData(models.Model):
+    categories = models.ManyToManyField(Category, related_name="articles")
     heading = models.TextField()
     content = models.TextField()
 
@@ -229,7 +312,16 @@ class AiData(models.Model):
         # Return the list of formatted strings
         return " ".join(result)
 
-
+    @classmethod
+    def getAllHeadingsByCat(cls, cat):
+        # Retrieve all records filtered by category
+        all_data = cls.objects.filter(categories=cat)
+        # Format each record as 'id:{number}-heading:{heading};'
+        result = []
+        for data in all_data:
+            result.append(f"id:({data.id})-heading:({data.heading});")
+        # Return the list of formatted strings
+        return " ".join(result)
 
     @classmethod
     def getAllHeadingsLength(cls):
@@ -241,7 +333,6 @@ class AiData(models.Model):
             result.append(f"id:({data.id})-heading:({data.heading});")
         # Return the list of formatted strings
         return len(" ".join(result))
-
 
     @classmethod
     def getMeanContentLength(cls):
@@ -255,6 +346,34 @@ class AiData(models.Model):
         if count == 0:
             return 0
 
-        # Calculate mean content length
         mean_length = total_length // count
         return mean_length
+
+    @classmethod
+    def calculate_token_size(cls, content):
+        """
+        Simple token size calculation: assume 1 token for every 4 characters.
+        """
+        return len(content) // 4
+
+    @classmethod
+    def get_token_size_by_category(cls, category_id):
+        """
+        Calculate the total token size for all articles in the specified category.
+        Uses a simple method of dividing content length by 4.
+        """
+        # Retrieve the category object first
+        try:
+            category = Category.objects.get(id=category_id)
+        except Category.DoesNotExist:
+            return 0  # Return 0 if the category doesn't exist
+
+        # Retrieve all articles in this category
+        articles = cls.objects.filter(categories=category)
+
+        total_tokens = 0
+        # Calculate token size for each article's content
+        for article in articles:
+            total_tokens += cls.calculate_token_size(article.heading)
+
+        return total_tokens

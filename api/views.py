@@ -98,7 +98,6 @@ class ClientConversationView(APIView):
             "content": ai_response,
         }
 
-        # Save the AI's message
         ai_message_serializer = MessageSerializer(data=ai_message_data)
         if ai_message_serializer.is_valid():
             ai_message_serializer.save()

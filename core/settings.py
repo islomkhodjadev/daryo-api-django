@@ -1,22 +1,21 @@
+# nesessary variables
+HISTORY_ALLOWED = False
+BASE_URL = "daryo-api"
+SITE_URL = "http://176.98.237.4"
+
+
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-BASE_URL = "daryo-api"
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = "django-insecure-9c1&76jsuxjf^=h$9-8$&9)1$(g%1j^bh0mfvf6^g*b0)j1m1f"
 
-# SECURITY WARNING: don't run with debug turned on in production!
+
 DEBUG = True
 ALLOWED_HOSTS = ["176.98.237.4", "127.0.0.1:8000", "127.0.0.1", "ringai.uz"]
-SITE_URL = "http://176.98.237.4"
 
-
-# Application definition
 
 INSTALLED_APPS = [
     "jazzmin",
@@ -124,6 +123,13 @@ STATIC_ROOT = os.path.join(BASE_DIR, "static")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",  # In-memory cache
+        "LOCATION": "unique-snowflake",  # A unique identifier for this cache instance
+    }
+}
 
 JAZZMIN_SETTINGS = {
     "site_title": "Daryo admin panel",  # The title in the browser tab

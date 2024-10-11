@@ -4,7 +4,8 @@ from django.shortcuts import render, redirect
 from django.contrib import admin
 from django.utils import timezone
 from .models import Client, Conversation, Message, Muhbir, UsageLimit, APIKey
-from .utils import get_ai_response, content, content_for_chooser
+from .utils import get_ai_response, token_size_calculate, avarage_request_token_size
+from django.conf import settings
 
 
 # APIKey Admin
@@ -16,7 +17,6 @@ class APIKeyAdmin(admin.ModelAdmin):
     search_fields = ("key",)
 
 
-# Conversation Admin
 @admin.register(Conversation)
 class ConversationAdmin(admin.ModelAdmin):
     """
@@ -150,10 +150,12 @@ def calculate_tokens(content):
     Estimate the number of tokens used based on the content length.
     This is a simplified approximation.
     """
-    return len(content) // 4 + 1  # Adjust as needed based on your tokenization strategy
+    return len(content) // 4  # Adjust as needed based on your tokenization strategy
 
 
 from django.db import models
+
+from functools import lru_cache
 
 
 # Usage Limit Admin
@@ -164,20 +166,18 @@ class UsageLimitAdmin(admin.ModelAdmin):
         "daily_limit",
         "total_tokens_spent",
         "price",
-        "heading_token_count",
+        "avarage_token_to_choose",
         "average_content_token_size",
     )
     list_filter = ("is_muhbir",)
 
     def total_tokens_spent(self, obj):
-        """Calculate total tokens spent by clients based on message content."""
+
         messages = Message.objects.filter(conversation__client__is_muhbir=obj.is_muhbir)
 
         total_input_tokens = 0
         total_output_tokens = 0
-        extra_text = content_for_chooser + content
 
-        # Build a full conversation history string
         history = ""
         for message in messages:
             if message.sender == "ai":
@@ -185,24 +185,15 @@ class UsageLimitAdmin(admin.ModelAdmin):
                 history += f"AI: {message.content}\n"
             else:
                 history += f"User: {message.content}\n"
-                input_content = history + extra_text  # Include history and extra text
-                total_input_tokens += (
-                    calculate_tokens(input_content)
-                    + AiData.getMeanContentLength()
-                    + calculate_tokens(AiData.getAllHeadings())
-                )
+                if settings.HISTORY_ALLOWED:
+                    total_input_tokens += token_size_calculate(history)
+                else:
+                    total_input_tokens += token_size_calculate(message.content)
 
         return total_input_tokens, total_output_tokens
 
-    def heading_token_count(self, obj):
-        """Calculate the total tokens for headings (heading length // 4)."""
-        total_heading_length = (
-            AiData.objects.all().aggregate(
-                total=models.Sum(models.functions.Length("heading"))
-            )["total"]
-            or 0
-        )
-        return total_heading_length // 4  # Estimate total tokens by dividing by 4
+    def avarage_token_to_choose(self, obj):
+        return avarage_request_token_size()
 
     def average_content_token_size(self, obj):
         """Calculate the average tokens for content (average content length // 4)."""
@@ -225,14 +216,14 @@ class UsageLimitAdmin(admin.ModelAdmin):
         """Calculate the total cost based on token usage."""
         input_tokens, output_tokens = self.total_tokens_spent(obj)
 
-        input_price = (input_tokens / 1_000_000) * 0.150  # Cost for input tokens
-        output_price = (output_tokens / 1_000_000) * 0.600  # Cost for output tokens
+        input_price = (input_tokens / 1000000) * 0.150  # Cost for input tokens
+        output_price = (output_tokens / 1000000) * 0.600  # Cost for output tokens
 
         return f"{input_price + output_price:.4f} $"  # Total price
 
     total_tokens_spent.short_description = "Total Tokens Spent (Input/Output)"
     price.short_description = "Total Cost"
-    heading_token_count.short_description = "Total Heading Tokens"
+    avarage_token_to_choose.short_description = "Avarage One request Tokens to choose"
     average_content_token_size.short_description = "Average Content Token Size"
 
 
@@ -240,7 +231,7 @@ from django.urls import path
 from django.shortcuts import render, redirect
 from django.contrib import admin, messages
 import pandas as pd
-from .models import AiData
+from .models import AiData, Category
 from .forms import ExcelUploadForm
 from django.utils.html import format_html
 
@@ -262,7 +253,6 @@ class AiDataAdmin(admin.ModelAdmin):
         ]
         return custom_urls + urls
 
-    # Add the custom link to the changelist page
     def changelist_view(self, request, extra_context=None):
         extra_context = extra_context or {}
         extra_context["upload_data_url"] = "admin:upload_data"
@@ -275,23 +265,12 @@ class AiDataAdmin(admin.ModelAdmin):
             if form.is_valid():
                 excel_file = request.FILES["excel_file"]
                 try:
-                    # Read the Excel file into a pandas DataFrame
-                    df = pd.read_excel(excel_file)
+                    # Read data from Excel file
+                    df = self.read_excel_data(excel_file)
 
-                    # Check for required columns 'heading' and 'content'
-                    if "heading" in df.columns and "content" in df.columns:
-                        # Insert each row from the Excel file into the AiData model
-                        for index, row in df.iterrows():
-                            AiData.objects.create(
-                                heading=row["heading"], content=row["content"]
-                            )
-                        messages.success(request, "Data uploaded successfully!")
-                        return redirect("..")
-                    else:
-                        messages.error(
-                            request,
-                            "The Excel file must contain 'heading' and 'content' columns.",
-                        )
+                    # Validate and write data to the database
+                    self.write_data_to_db(df, request)
+                    return redirect("..")
                 except Exception as e:
                     messages.error(request, f"Error processing file: {e}")
         else:
@@ -299,6 +278,48 @@ class AiDataAdmin(admin.ModelAdmin):
 
         context = {"form": form}
         return render(request, "admin/upload_data.html", context)
+
+    # Method to read Excel data
+    def read_excel_data(self, excel_file):
+        """
+        Reads the Excel file and returns a DataFrame.
+        Raises an exception if there's an issue reading the file.
+        """
+        df = pd.read_excel(excel_file)
+
+        # Check for required columns
+        required_columns = ["heading", "content", "category"]
+        if all(column in df.columns for column in required_columns):
+            return df
+        else:
+            raise ValueError(
+                "The Excel file must contain 'heading', 'content', and 'category' columns."
+            )
+
+    def write_data_to_db(self, df, request):
+        """
+        Writes the data from the DataFrame to the AiData model.
+        Handles multiple categories for each article.
+        Automatically creates any category that doesn't exist.
+        """
+        for index, row in df.iterrows():
+            # Create the article
+            article = AiData.objects.create(
+                heading=row["heading"], content=row["content"]
+            )
+
+            # Handle categories, split by commas
+            category_names = row["category"].split(",")
+            for category_name in category_names:
+                category_name = category_name.strip()  # Remove any extra spaces
+
+                # Check if the category exists, if not create it
+                category, created = Category.objects.get_or_create(name=category_name)
+
+                # Add the category to the article
+                article.categories.add(category)
+
+        messages.success(request, "Data uploaded successfully!")
 
     # Add a method to display the link on the changelist page
     def changelist_upload_button(self, obj):
@@ -308,3 +329,9 @@ class AiDataAdmin(admin.ModelAdmin):
         )
 
     changelist_upload_button.short_description = "Upload Data"
+
+
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ("name",)
+    search_fields = ("name",)
