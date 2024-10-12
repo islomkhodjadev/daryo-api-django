@@ -25,6 +25,13 @@ class APIKeyMiddleware:
         except APIKey.DoesNotExist:
             return JsonResponse({"error": "Invalid or inactive API key"}, status=403)
 
+        if not key.can_use_tokens(500):
+
+            return JsonResponse(
+                {"error": "Token limit reached, no tokens remaining"}, status=403
+            )
+
+        request.api_key = key
         # Proceed with the request if the API key is valid
         response = self.get_response(request)
         return response

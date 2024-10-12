@@ -66,6 +66,7 @@ def chooseOne(user_message):
     global content
 
     permanent_content = content
+    token_used = len(permanent_content)
 
     content_for_chooser = (
         """
@@ -76,6 +77,7 @@ def chooseOne(user_message):
     """
         + Category.getAllCategories()
     )
+    token_used += len(content_for_chooser)
 
     category = Category.getData(ai(content_for_chooser, user_message))
 
@@ -89,13 +91,16 @@ def chooseOne(user_message):
         """ + AiData.getAllHeadingsByCat(
             category.id
         )
+        token_used += len(content_for_chooser)
 
         aidata = AiData.getData(ai(content_for_chooser, user_message))
 
-        if content is not None:
+        if aidata is not None:
+            token_used += len(aidata.content)
+
             permanent_content += aidata.content
 
-    return permanent_content
+    return permanent_content, token_used // 4
 
 
 from django.conf import settings
@@ -103,13 +108,18 @@ from django.conf import settings
 
 def get_ai_response(user_message, user_history):
 
-    permanent_data = chooseOne(user_message)
+    permanent_data, token_used_input = chooseOne(user_message)
+
     if settings.HISTORY_ALLOWED:
+
         user_message = user_history
 
-    answer = ai(permanent_data, user_message)
+    token_used_input += len(user_message) // 4
 
-    return answer
+    answer = ai(permanent_data, user_message)
+    token_used_output = (len(answer) // 4) + 6
+
+    return answer, token_used_input, token_used_output
 
 
 from functools import lru_cache

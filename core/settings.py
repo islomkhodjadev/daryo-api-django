@@ -14,7 +14,13 @@ SECRET_KEY = "django-insecure-9c1&76jsuxjf^=h$9-8$&9)1$(g%1j^bh0mfvf6^g*b0)j1m1f
 
 
 DEBUG = False
-ALLOWED_HOSTS = ["176.98.237.4", "127.0.0.1:8000", "127.0.0.1", "ringai.uz", 'www.ringai.uz']
+ALLOWED_HOSTS = [
+    "176.98.237.4",
+    "127.0.0.1:8000",
+    "127.0.0.1",
+    "ringai.uz",
+    "www.ringai.uz",
+]
 
 
 INSTALLED_APPS = [

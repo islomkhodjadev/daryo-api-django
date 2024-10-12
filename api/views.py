@@ -81,10 +81,10 @@ class ClientConversationView(APIView):
         )  # Fetch the formatted history
 
         try:
-            ai_response = get_ai_response(
+            ai_response, token_input, token_output = get_ai_response(
                 user_message=user_message, user_history=conversation_history
             )
-
+            request.api_key.use_tokens(token_input + token_output)
         except Exception as e:
             return Response(
                 {"error": f"An error occurred while getting AI response: {str(e)}"},
@@ -196,7 +196,7 @@ def chat_view(self, request, conversation_id):
 
         # Attempt to get the AI response
         try:
-            ai_response = get_ai_response(
+            ai_response, token_input, token_output = get_ai_response(
                 user_message,
                 extra_data="\nyou are now answering for reporters of daryo not for ordinary client\n",
             )

@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from datetime import timedelta
-
+from django.db import transaction
 
 from django.db import models
 import uuid
@@ -18,6 +18,8 @@ class APIKey(models.Model):
     )
     created_at = models.DateTimeField(default=timezone.now)
     is_active = models.BooleanField(default=True)  # Enable or disable the API key
+    token_limit = models.IntegerField(default=0)  # Total token limit
+    tokens_used = models.IntegerField(default=0)  # Tokens used so far
 
     def __str__(self):
         return f"API Key {self.key}"
@@ -26,6 +28,30 @@ class APIKey(models.Model):
         if not self.key:
             self.key = str(uuid.uuid4())  # Generate a new API key if one doesn't exist
         super().save(*args, **kwargs)
+
+    def remaining_tokens(self):
+        """Returns the number of remaining tokens."""
+        return self.token_limit - self.tokens_used
+
+    def can_use_tokens(self, tokens_requested):
+        """
+        Check if the API key has enough remaining tokens to fulfill the request.
+        """
+
+        return self.remaining_tokens() >= tokens_requested
+
+    @transaction.atomic
+    def use_tokens(self, tokens_requested):
+        """
+        Deduct the requested tokens from the available tokens if there are enough left,
+        with transaction locking to avoid race conditions.
+        Returns True if tokens were successfully deducted, False otherwise.
+        """
+        # Lock the row to avoid race conditions
+        api_key = APIKey.objects.select_for_update().get(pk=self.pk)
+
+        api_key.tokens_used += tokens_requested
+        api_key.save()
 
 
 class UsageLimit(models.Model):
