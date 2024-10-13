@@ -8,6 +8,8 @@ from .utils import get_ai_response
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
+from django.conf import settings
+
 
 class ClientConversationView(APIView):
     """
@@ -33,9 +35,15 @@ class ClientConversationView(APIView):
             client, created = Client.objects.get_or_create(
                 external_id=external_id, defaults={"name": name, "email": email}
             )
-            if created:
+            if created and settings.CLIENTS_COUNT < Client.objects.all().count():
                 # New client created
                 client_serializer = ClientSerializer(client)
+                client.delete()
+                return Response(
+                    {"error": "You have exceeded the maximum allowed limit of users."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         except Exception as e:
             return Response(
                 {"error": f"An error occurred while accessing the client: {str(e)}"},

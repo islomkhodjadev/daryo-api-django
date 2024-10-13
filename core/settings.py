@@ -2,6 +2,7 @@
 HISTORY_ALLOWED = False
 BASE_URL = "daryo-api"
 SITE_URL = "http://176.98.237.4"
+CLIENT_COUNTS = 400
 
 
 from pathlib import Path
