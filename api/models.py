@@ -137,7 +137,7 @@ class Conversation(models.Model):
 
         # If last_refreshed is not set or more than 2 hours have passed since last refresh
         if self.last_refreshed is None or (
-            now - self.last_refreshed >= timedelta(hours=2)
+            now - self.last_refreshed >= timedelta(minutes=30)
         ):
             # Find the last user message (before resetting)
             last_user_message = (
