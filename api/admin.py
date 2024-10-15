@@ -100,7 +100,7 @@ class ConversationAdmin(admin.ModelAdmin):
             try:
                 ai_response = get_ai_response(
                     user_message=user_message,
-                    user_history=conversation.get_all_messages_str,
+                    user_history=conversation.last_conversation_messages_str,
                     extra_data="\nyou are now responding to reporters of daro be serious and official you are helper for them, use official emojies\n",
                 )
             except Exception as e:
@@ -158,7 +158,6 @@ from django.db import models
 from functools import lru_cache
 
 
-# Usage Limit Admin
 @admin.register(UsageLimit)
 class UsageLimitAdmin(admin.ModelAdmin):
     list_display = (

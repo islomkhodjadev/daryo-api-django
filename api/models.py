@@ -63,6 +63,7 @@ class UsageLimit(models.Model):
         default=False
     )  # True for Muhbirs, False for regular clients
     daily_limit = models.IntegerField(default=20)  # Default limit for ordinary clients
+    history_tokens = models.PositiveIntegerField(default=0)
 
     def __str__(self):
         client_type = "Muhbir" if self.is_muhbir else "Ordinary Client"
@@ -108,6 +109,10 @@ class Conversation(models.Model):
     Each client can have only one conversation.
     """
 
+    last_refreshed = models.DateTimeField(
+        null=True, blank=True
+    )  # New field to track last refresh time
+
     client = models.OneToOneField(
         Client, on_delete=models.CASCADE
     )  # Each client has only one conversation
@@ -123,8 +128,33 @@ class Conversation(models.Model):
         return f"/{settings.BASE_URL}/admin/api/conversation/{self.id}/chat/"
 
     @property
-    def get_all_messages_str(self):
-        messages = self.messages.all()
+    def last_conversation_messages_str(self):
+        """
+        Return messages from the last refresh time until now. If more than 2 hours have passed since the
+        last refresh, reset the history and update the refresh time to now, but include the last message from the user.
+        """
+        now = timezone.now()
+
+        # If last_refreshed is not set or more than 2 hours have passed since last refresh
+        if self.last_refreshed is None or (
+            now - self.last_refreshed >= timedelta(hours=2)
+        ):
+            # Find the last user message (before resetting)
+            last_user_message = (
+                self.messages.filter(sender="client").order_by("-timestamp").first()
+            )
+
+            # Update last_refreshed to now (starting a new conversation)
+            self.last_refreshed = now
+            self.save()
+
+            # Return the last user message if it exists
+            if last_user_message:
+                timestamp = last_user_message.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+                formatted_message = f"{timestamp} - User: {last_user_message.content}"
+                return formatted_message
+
+        messages = self.messages.filter(timestamp__gte=self.last_refreshed)
 
         message_list = []
         for message in messages:
@@ -141,7 +171,7 @@ class Conversation(models.Model):
         count = convers.count()
 
         total_length = (
-            sum([len(con.get_all_messages_str) for con in convers]) // count
+            sum([len(con.last_conversation_messages_str) for con in convers]) // count
             if count != 0
             else 0
         )

@@ -1,9 +1,8 @@
 # nesessary variables
-HISTORY_ALLOWED = False
+HISTORY_ALLOWED = True
 BASE_URL = "daryo-api"
 SITE_URL = "http://176.98.237.4"
-CLIENT_COUNTS = 400
-
+CLIENT_COUNTS = 1000000
 
 from pathlib import Path
 

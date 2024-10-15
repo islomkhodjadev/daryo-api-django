@@ -84,9 +84,12 @@ class ClientConversationView(APIView):
             )
 
         # Get AI response based on the conversation history
-        conversation_history = (
-            conversation.get_all_messages_str
-        )  # Fetch the formatted history
+        if settings.HISTORY_ALLOWED:
+            conversation_history = (
+                conversation.last_conversation_messages_str
+            )  # Fetch the formatted history
+        else:
+            conversation_history = ""
 
         try:
             ai_response, token_input, token_output = get_ai_response(
