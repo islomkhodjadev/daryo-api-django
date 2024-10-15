@@ -130,12 +130,19 @@ class Conversation(models.Model):
     @property
     def last_conversation_messages_str(self):
         """
-        Return messages from the last refresh time until now. If more than 2 hours have passed since the
+        Return messages from the last refresh time until now. If more than 30 minutes have passed since the
         last refresh, reset the history and update the refresh time to now, but include the last message from the user.
+        Ensure the message history doesn't exceed 6,000 tokens. Start adding messages from the most recent one.
         """
+
+        def estimate_token_count(text):
+            # Estimate tokens by assuming 1 token for ~4 characters
+            return len(text) // 4
+
+        MAX_TOKENS = 6000  # Max tokens allowed in the history
         now = timezone.now()
 
-        # If last_refreshed is not set or more than 2 hours have passed since last refresh
+        # If last_refreshed is not set or more than 30 minutes have passed since last refresh
         if self.last_refreshed is None or (
             now - self.last_refreshed >= timedelta(minutes=30)
         ):
@@ -154,15 +161,35 @@ class Conversation(models.Model):
                 formatted_message = f"{timestamp} - User: {last_user_message.content}"
                 return formatted_message
 
-        messages = self.messages.filter(timestamp__gte=self.last_refreshed)
+        # Retrieve messages from the most recent to the least recent (descending order)
+        messages = self.messages.filter(timestamp__gte=self.last_refreshed).order_by(
+            "-timestamp"
+        )
 
         message_list = []
+        total_tokens = 0
+
+        # Loop over the messages from most recent to least recent
         for message in messages:
             timestamp = message.timestamp.strftime("%Y-%m-%d %H:%M:%S")
             sender = "User" if message.sender == "client" else "AI"
             formatted_message = f"{timestamp} - {sender}: {message.content}"
-            message_list.append(formatted_message)
 
+            # Estimate the number of tokens for this message
+            message_tokens = estimate_token_count(formatted_message)
+
+            # Check if adding this message would exceed the token limit
+            if total_tokens + message_tokens > MAX_TOKENS:
+                # If adding this message exceeds the limit, stop adding more messages
+                break
+
+            # Add the message to the start of the list and update the total token count
+            message_list.insert(
+                0, formatted_message
+            )  # Insert messages at the beginning (reverse order)
+            total_tokens += message_tokens
+
+        # Join the message list into a single string
         return "\n".join(message_list)
 
     @classmethod
