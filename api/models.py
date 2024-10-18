@@ -20,6 +20,8 @@ class APIKey(models.Model):
     is_active = models.BooleanField(default=True)  # Enable or disable the API key
     token_limit = models.IntegerField(default=0)  # Total token limit
     tokens_used = models.IntegerField(default=0)  # Tokens used so far
+    request_count = models.PositiveBigIntegerField(default=100000)
+    request_used = models.IntegerField(default=0)
 
     def __str__(self):
         return f"API Key {self.key}"
@@ -39,6 +41,13 @@ class APIKey(models.Model):
         """
 
         return self.remaining_tokens() >= tokens_requested
+
+    def can_use_requests(self):
+        """
+        Check if the API key has enough remaining tokens to fulfill the request.
+        """
+
+        return self.request_count > self.request_used
 
     @transaction.atomic
     def use_tokens(self, tokens_requested):

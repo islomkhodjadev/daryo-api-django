@@ -17,6 +17,7 @@ class ClientConversationView(APIView):
     """
 
     def post(self, request):
+
         # Get client credentials and message from the request
         external_id = request.data.get("external_id")
         name = request.data.get("name")

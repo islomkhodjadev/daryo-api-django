@@ -1,5 +1,5 @@
 from django.http import JsonResponse
-from .models import APIKey
+from .models import APIKey, UsageLimit
 
 
 class APIKeyMiddleware:
@@ -25,11 +25,16 @@ class APIKeyMiddleware:
         except APIKey.DoesNotExist:
             return JsonResponse({"error": "Invalid or inactive API key"}, status=403)
 
-        if not key.can_use_tokens(500):
-
+        if not key.can_use_requests():
             return JsonResponse(
-                {"error": "Token limit reached, no tokens remaining"}, status=403
+                {"error": "Requests limit reached, no requests remaining"}, status=403
             )
+
+        # if not key.can_use_tokens(500):
+
+        #     return JsonResponse(
+        #         {"error": "Token limit reached, no tokens remaining"}, status=403
+        #     )
 
         request.api_key = key
         # Proceed with the request if the API key is valid
