@@ -29,7 +29,8 @@ class APIKeyMiddleware:
             return JsonResponse(
                 {"error": "Requests limit reached, no requests remaining"}, status=403
             )
-
+        key.request_used += 1
+        key.save()
         # if not key.can_use_tokens(500):
 
         #     return JsonResponse(

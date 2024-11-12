@@ -52,6 +52,7 @@ def ai(content, user_message):
     completion = client.chat.completions.create(
         model="gpt-4o-mini",
         temperature=0.4,
+        max_tokens=500,
         messages=[
             {"role": "system", "content": content},
             {"role": "user", "content": user_message},
