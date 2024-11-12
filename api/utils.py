@@ -1,13 +1,16 @@
 import os
 
 from openai import OpenAI
-
+import google.generativeai as genai
 from dotenv import load_dotenv
 from .models import AiData, Category, Conversation
 
 load_dotenv()
 
 import os
+
+genai.configure(api_key=os.getenv("gemini-token"))
+
 
 content = """\n 
 you are well taught assistant of 'Daryo' news company,
@@ -45,7 +48,23 @@ here is is info you should know and answer from:\n
 """
 
 
-def ai(content, user_message):
+def ai_gemini(content: str, user_message: str):
+
+    model = genai.GenerativeModel(
+        model_name="gemini-1.5-flash-latest",
+        generation_config=genai.types.GenerationConfigDict(
+            {"temperature": 0.7, "max_output_tokens": 500}
+        ),
+        system_instruction=content,
+    )
+    response = model.generate_content(
+        user_message,
+    )
+
+    return response.text
+
+
+def ai_gpt(content, user_message):
 
     client = OpenAI(api_key=os.getenv("gpt_token"))
 
@@ -61,6 +80,9 @@ def ai(content, user_message):
 
     ai_response = completion.choices[0].message
     return ai_response.content
+
+
+ai = ai_gpt
 
 
 def chooseOne(user_message):
