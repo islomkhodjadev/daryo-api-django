@@ -82,7 +82,7 @@ def ai_gpt(content, user_message):
     return ai_response.content
 
 
-ai = ai_gpt
+ai = ai_gemini
 
 
 def chooseOne(user_message):
