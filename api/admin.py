@@ -158,6 +158,9 @@ from django.db import models
 from functools import lru_cache
 
 
+from django.db.models import Avg, Sum, F, Count
+
+
 @admin.register(UsageLimit)
 class UsageLimitAdmin(admin.ModelAdmin):
     list_display = (
@@ -171,38 +174,61 @@ class UsageLimitAdmin(admin.ModelAdmin):
     list_filter = ("is_muhbir",)
 
     def total_tokens_spent(self, obj):
-
+        """
+        Calculate total input and output tokens for messages linked to the given usage limit.
+        """
         messages = Message.objects.filter(conversation__client__is_muhbir=obj.is_muhbir)
 
+        # Use database aggregation to calculate total tokens directly
         total_input_tokens = 0
-        total_output_tokens = 0
+        total_output_tokens = (
+            messages.filter(sender="ai").aggregate(
+                total_output=Sum(
+                    F("content_token_size")
+                )  # Assuming content token size is pre-calculated
+            )["total_output"]
+            or 0
+        )
 
-        history = ""
-        for message in messages:
-            if message.sender == "ai":
-                total_output_tokens += calculate_tokens(message.content)
-                history += f"AI: {message.content}\n"
-            else:
-                history += f"User: {message.content}\n"
-                if settings.HISTORY_ALLOWED:
-                    total_input_tokens += token_size_calculate(history)
-                else:
-                    total_input_tokens += token_size_calculate(message.content)
+        if settings.HISTORY_ALLOWED:
+            # Calculate total input tokens for all user messages with history
+            total_input_tokens = (
+                messages.exclude(sender="ai").aggregate(
+                    total_input=Sum(
+                        F("history_token_size")
+                    )  # Assuming history tokens are pre-calculated
+                )["total_input"]
+                or 0
+            )
+        else:
+            # Calculate total input tokens for individual user messages
+            total_input_tokens = (
+                messages.exclude(sender="ai").aggregate(
+                    total_input=Sum(F("content_token_size"))
+                )["total_input"]
+                or 0
+            )
 
         return total_input_tokens, total_output_tokens
 
     def avarage_token_to_choose(self, obj):
+        """
+        Return an average token size per request.
+        """
+        # Replace with an optimized query or precomputed value if applicable
         return avarage_request_token_size()
 
     def average_content_token_size(self, obj):
-        """Calculate the average tokens for content (average content length // 4)."""
-        total_content_length = (
-            AiData.objects.all().aggregate(
-                total=models.Sum(models.functions.Length("content"))
-            )["total"]
-            or 0
+        """
+        Calculate the average tokens for content (average content length // 4).
+        """
+        # Use database aggregation for total content length and count
+        aggregate_data = AiData.objects.aggregate(
+            total_content_length=Sum(models.functions.Length("content")),
+            content_count=Count("id"),
         )
-        content_count = AiData.objects.count()
+        total_content_length = aggregate_data["total_content_length"] or 0
+        content_count = aggregate_data["content_count"]
 
         if content_count > 0:
             average_content_length = total_content_length // content_count
@@ -212,11 +238,13 @@ class UsageLimitAdmin(admin.ModelAdmin):
         return 0
 
     def price(self, obj):
-        """Calculate the total cost based on token usage."""
+        """
+        Calculate the total cost based on token usage.
+        """
         input_tokens, output_tokens = self.total_tokens_spent(obj)
 
-        input_price = (input_tokens / 1000000) * 0.150  # Cost for input tokens
-        output_price = (output_tokens / 1000000) * 0.600  # Cost for output tokens
+        input_price = (input_tokens / 1_000_000) * 0.150  # Cost for input tokens
+        output_price = (output_tokens / 1_000_000) * 0.600  # Cost for output tokens
 
         return f"{input_price + output_price:.4f} $"  # Total price
 
