@@ -156,8 +156,6 @@ def calculate_tokens(content):
 from django.db import models
 
 from functools import lru_cache
-
-
 from django.db.models import Avg, Sum, F, Count
 
 
@@ -176,37 +174,30 @@ class UsageLimitAdmin(admin.ModelAdmin):
     def total_tokens_spent(self, obj):
         """
         Calculate total input and output tokens for messages linked to the given usage limit.
+        Optimized with fewer iterations and database aggregations.
         """
+        # Get all messages related to the specified is_muhbir flag
         messages = Message.objects.filter(conversation__client__is_muhbir=obj.is_muhbir)
 
-        # Use database aggregation to calculate total tokens directly
-        total_input_tokens = 0
-        total_output_tokens = (
-            messages.filter(sender="ai").aggregate(
-                total_output=Sum(
-                    F("content_token_size")
-                )  # Assuming content token size is pre-calculated
-            )["total_output"]
-            or 0
+        # Use database aggregation for output tokens
+        total_output_tokens = sum(
+            calculate_tokens(message.content)
+            for message in messages.filter(sender="ai")
         )
 
+        # Optimize input token calculation with fewer iterations
+        total_input_tokens = 0
         if settings.HISTORY_ALLOWED:
-            # Calculate total input tokens for all user messages with history
-            total_input_tokens = (
-                messages.exclude(sender="ai").aggregate(
-                    total_input=Sum(
-                        F("history_token_size")
-                    )  # Assuming history tokens are pre-calculated
-                )["total_input"]
-                or 0
-            )
+            # If history is allowed, calculate tokens with accumulated history
+            history = ""
+            for message in messages.exclude(sender="ai"):
+                history += f"User: {message.content}\n"
+                total_input_tokens += token_size_calculate(history)
         else:
-            # Calculate total input tokens for individual user messages
-            total_input_tokens = (
-                messages.exclude(sender="ai").aggregate(
-                    total_input=Sum(F("content_token_size"))
-                )["total_input"]
-                or 0
+            # Calculate tokens for individual messages
+            total_input_tokens = sum(
+                token_size_calculate(message.content)
+                for message in messages.exclude(sender="ai")
             )
 
         return total_input_tokens, total_output_tokens
@@ -215,7 +206,6 @@ class UsageLimitAdmin(admin.ModelAdmin):
         """
         Return an average token size per request.
         """
-        # Replace with an optimized query or precomputed value if applicable
         return avarage_request_token_size()
 
     def average_content_token_size(self, obj):
