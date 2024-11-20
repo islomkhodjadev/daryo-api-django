@@ -180,7 +180,7 @@ class UsageLimitAdmin(admin.ModelAdmin):
         )
 
         total_output_tokens = sum(
-            calculate_tokens(message.content) for message in messages
+            calculate_tokens(message.content) + 5 for message in messages
         )
 
         return total_output_tokens
