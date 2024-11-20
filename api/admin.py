@@ -166,8 +166,8 @@ class UsageLimitAdmin(admin.ModelAdmin):
         "daily_limit",
         "total_tokens_spent",
         "price",
-        "avarage_token_to_choose",
-        "average_content_token_size",
+        # "avarage_token_to_choose",
+        # "average_content_token_size",
     )
     list_filter = ("is_muhbir",)
 
