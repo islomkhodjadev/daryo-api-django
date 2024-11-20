@@ -32,3 +32,17 @@ class MessageSerializer(serializers.ModelSerializer):
         if not Conversation.objects.filter(id=conversation.id).exists():
             raise serializers.ValidationError("The conversation does not exist.")
         return super().create(validated_data)
+
+
+from rest_framework import serializers
+from .models import AiData, Category
+
+
+class AiDataSerializer(serializers.ModelSerializer):
+    categories = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=Category.objects.all()
+    )
+
+    class Meta:
+        model = AiData
+        fields = ["id", "heading", "content", "categories"]

@@ -377,69 +377,71 @@ class AiData(models.Model):
     content = models.TextField()
 
     @classmethod
-    def getData(cls, id):
-        try:
-            id = int(id)
-        except (ValueError, TypeError):
-            return None  # Invalid ID format
+    def getLast500(cls):
+        """
+        Retrieve the last 500 records based on id in descending order.
+        """
+        return cls.objects.order_by("-id")[:500]
 
-        # Safely retrieve data, handling potential errors
-        try:
-            data = cls.objects.get(id=id)
-            return data
-        except ObjectDoesNotExist:
-            return None  # Handle if the object does not exist
-        except Exception as e:
-            # Optionally log the exception or handle other errors
-            return None
+    @classmethod
+    def getData(cls, id):
+        """
+        Retrieve a single article by id, limited to the last 500 articles.
+        """
+        last_500_ids = cls.getLast500().values_list("id", flat=True)
+        if id in last_500_ids:
+            try:
+                return cls.objects.get(id=id)
+            except cls.DoesNotExist:
+                return None
+        return None
 
     @classmethod
     def getAllHeadings(cls):
-        # Retrieve all records from the database
-        all_data = cls.objects.all()
-        # Format each record as 'id:{number}-heading:{heading};'
+        """
+        Retrieve headings for the last 500 records.
+        """
+        all_data = cls.getLast500()
         result = []
         for data in all_data:
             result.append(f"id:({data.id})-heading:({data.heading});")
-        # Return the list of formatted strings
         return " ".join(result)
 
     @classmethod
     def getAllHeadingsByCat(cls, cat):
-        # Retrieve all records filtered by category
-        all_data = cls.objects.filter(categories=cat)
-        # Format each record as 'id:{number}-heading:{heading};'
+        """
+        Retrieve headings for the last 500 records filtered by category.
+        """
+        all_data = cls.objects.filter(categories=cat).order_by("-id")[:500]
         result = []
         for data in all_data:
             result.append(f"id:({data.id})-heading:({data.heading});")
-        # Return the list of formatted strings
         return " ".join(result)
 
     @classmethod
     def getAllHeadingsLength(cls):
-        # Retrieve all records from the database
-        all_data = cls.objects.all()
-        # Format each record as 'id:{number}-heading:{heading};'
+        """
+        Get the combined length of headings for the last 500 records.
+        """
+        all_data = cls.getLast500()
         result = []
         for data in all_data:
             result.append(f"id:({data.id})-heading:({data.heading});")
-        # Return the list of formatted strings
         return len(" ".join(result))
 
     @classmethod
     def getMeanContentLength(cls):
-        # Retrieve all records
-        all_data = cls.objects.all()
-        # Get the total length of content and count of records
+        """
+        Calculate the mean content length for the last 500 records.
+        """
+        all_data = cls.getLast500()
         total_length = sum(len(data.content) for data in all_data)
         count = all_data.count()
 
-        # If there are no records, return 0 to avoid division by zero
         if count == 0:
             return 0
 
-        mean_length = total_length // count
-        return mean_length
+        return total_length // count
 
     @classmethod
     def calculate_token_size(cls, content):
@@ -451,21 +453,17 @@ class AiData(models.Model):
     @classmethod
     def get_token_size_by_category(cls, category_id):
         """
-        Calculate the total token size for all articles in the specified category.
-        Uses a simple method of dividing content length by 4.
+        Calculate the token size for the last 500 articles in a specific category.
         """
-        # Retrieve the category object first
         try:
             category = Category.objects.get(id=category_id)
         except Category.DoesNotExist:
             return 0  # Return 0 if the category doesn't exist
 
-        # Retrieve all articles in this category
-        articles = cls.objects.filter(categories=category)
+        articles = cls.objects.filter(categories=category).order_by("-id")[:500]
 
         total_tokens = 0
-        # Calculate token size for each article's content
         for article in articles:
-            total_tokens += cls.calculate_token_size(article.heading)
+            total_tokens += cls.calculate_token_size(article.content)
 
         return total_tokens
