@@ -192,11 +192,13 @@ class UsageLimitAdmin(admin.ModelAdmin):
                     conversation__client__is_muhbir=obj.is_muhbir, sender="user"
                 )
                 .aggregate(total=Sum(models.functions.Length("content")))
-                .get("total", 0)
+                .get("total", 0)  # Ensure a default value of 0
             )
-            total_input_tokens = total_input_tokens // 4  # Approximate token count
+            total_input_tokens = (
+                total_input_tokens or 0
+            ) // 4  # Approximate token count
 
-        return total_input_tokens or 0
+        return total_input_tokens
 
     def total_output_tokens_spent(self, obj):
         """
@@ -207,10 +209,10 @@ class UsageLimitAdmin(admin.ModelAdmin):
                 conversation__client__is_muhbir=obj.is_muhbir, sender="ai"
             )
             .aggregate(total=Sum(models.functions.Length("content")))
-            .get("total", 0)
+            .get("total", 0)  # Ensure a default value of 0
         )
-        total_output_tokens = total_output_tokens // 4  # Approximate token count
-        return total_output_tokens or 0
+        total_output_tokens = (total_output_tokens or 0) // 4  # Approximate token count
+        return total_output_tokens
 
     def price(self, obj):
         """
