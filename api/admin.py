@@ -164,31 +164,10 @@ class UsageLimitAdmin(admin.ModelAdmin):
     list_display = (
         "is_muhbir",
         "daily_limit",
-        "daily_usage",
         "total_output_tokens",
         "price",
     )
     list_filter = ("is_muhbir",)
-
-    def daily_usage(self, obj):
-        """
-        Calculate the total input tokens used by users today.
-        """
-        from django.utils.timezone import now
-
-        today = now().date()
-        # Filter messages for today and calculate tokens for user messages
-        messages = Message.objects.filter(
-            conversation__client__is_muhbir=obj.is_muhbir,
-            sender="user",
-            timestamp__date=today,  # Filter messages sent today
-        )
-
-        total_input_tokens = sum(
-            token_size_calculate(message.content) for message in messages
-        )
-
-        return total_input_tokens
 
     def total_output_tokens(self, obj):
         """
@@ -219,7 +198,6 @@ class UsageLimitAdmin(admin.ModelAdmin):
 
         return f"{output_price:.4f} $"  # Total price
 
-    daily_usage.short_description = "Daily Input Tokens (Today)"
     total_output_tokens.short_description = "Total Output Tokens (AI)"
     price.short_description = "Total Cost (Output Only)"
 
