@@ -164,84 +164,71 @@ class UsageLimitAdmin(admin.ModelAdmin):
     list_display = (
         "is_muhbir",
         "daily_limit",
-        "total_tokens_spent",
+        "total_input_tokens_spent",
+        "total_output_tokens_spent",
         "price",
-        # "avarage_token_to_choose",
-        # "average_content_token_size",
     )
     list_filter = ("is_muhbir",)
 
-    def total_tokens_spent(self, obj):
+    def total_input_tokens_spent(self, obj):
         """
-        Calculate total input and output tokens for messages linked to the given usage limit.
-        Optimized with fewer iterations and database aggregations.
+        Calculate total input tokens for messages linked to the given usage limit.
+        Optimized with database aggregation and reduced logic.
         """
-        # Get all messages related to the specified is_muhbir flag
-        messages = Message.objects.filter(conversation__client__is_muhbir=obj.is_muhbir)
-
-        # Use database aggregation for output tokens
-        total_output_tokens = sum(
-            calculate_tokens(message.content)
-            for message in messages.filter(sender="ai")
-        )
-
-        # Optimize input token calculation with fewer iterations
-        total_input_tokens = 0
         if settings.HISTORY_ALLOWED:
-            # If history is allowed, calculate tokens with accumulated history
+            # Accumulate history tokens (dynamic, slower but conditional)
+            messages = Message.objects.filter(
+                conversation__client__is_muhbir=obj.is_muhbir, sender="user"
+            )
+            total_input_tokens = 0
             history = ""
-            for message in messages.exclude(sender="ai"):
+            for message in messages:
                 history += f"User: {message.content}\n"
                 total_input_tokens += token_size_calculate(history)
         else:
-            # Calculate tokens for individual messages
-            total_input_tokens = sum(
-                token_size_calculate(message.content)
-                for message in messages.exclude(sender="ai")
+            # Direct calculation for individual messages
+            total_input_tokens = (
+                Message.objects.filter(
+                    conversation__client__is_muhbir=obj.is_muhbir, sender="user"
+                )
+                .aggregate(total=Sum(models.functions.Length("content")))
+                .get("total", 0)
             )
+            total_input_tokens = total_input_tokens // 4  # Approximate token count
 
-        return total_input_tokens, total_output_tokens
+        return total_input_tokens or 0
 
-    def avarage_token_to_choose(self, obj):
+    def total_output_tokens_spent(self, obj):
         """
-        Return an average token size per request.
+        Calculate total output tokens for AI messages.
         """
-        return avarage_request_token_size()
-
-    def average_content_token_size(self, obj):
-        """
-        Calculate the average tokens for content (average content length // 4).
-        """
-        # Use database aggregation for total content length and count
-        aggregate_data = AiData.objects.aggregate(
-            total_content_length=Sum(models.functions.Length("content")),
-            content_count=Count("id"),
+        total_output_tokens = (
+            Message.objects.filter(
+                conversation__client__is_muhbir=obj.is_muhbir, sender="ai"
+            )
+            .aggregate(total=Sum(models.functions.Length("content")))
+            .get("total", 0)
         )
-        total_content_length = aggregate_data["total_content_length"] or 0
-        content_count = aggregate_data["content_count"]
-
-        if content_count > 0:
-            average_content_length = total_content_length // content_count
-            return (
-                average_content_length // 4
-            )  # Estimate average tokens by dividing by 4
-        return 0
+        total_output_tokens = total_output_tokens // 4  # Approximate token count
+        return total_output_tokens or 0
 
     def price(self, obj):
         """
         Calculate the total cost based on token usage.
         """
-        input_tokens, output_tokens = self.total_tokens_spent(obj)
+        total_input_tokens = self.total_input_tokens_spent(obj)
+        total_output_tokens = self.total_output_tokens_spent(obj)
 
-        input_price = (input_tokens / 1_000_000) * 0.150  # Cost for input tokens
-        output_price = (output_tokens / 1_000_000) * 0.600  # Cost for output tokens
+        input_price = (total_input_tokens / 1_000_000) * 0.150  # Cost for input tokens
+        output_price = (
+            total_output_tokens / 1_000_000
+        ) * 0.600  # Cost for output tokens
 
         return f"{input_price + output_price:.4f} $"  # Total price
 
-    total_tokens_spent.short_description = "Total Tokens Spent (Input/Output)"
+    total_input_tokens_spent.short_description = "Input Tokens"
+    total_output_tokens_spent.short_description = "Output Tokens"
     price.short_description = "Total Cost"
-    avarage_token_to_choose.short_description = "Avarage One request Tokens to choose"
-    average_content_token_size.short_description = "Average Content Token Size"
 
 
 from django.urls import path
