@@ -164,57 +164,64 @@ class UsageLimitAdmin(admin.ModelAdmin):
     list_display = (
         "is_muhbir",
         "daily_limit",
-        "total_tokens_spent",
+        "daily_usage",
+        "total_output_tokens",
         "price",
     )
     list_filter = ("is_muhbir",)
 
-    def total_tokens_spent(self, obj):
+    def daily_usage(self, obj):
         """
-        Calculate total input and output tokens for messages linked to the given usage limit.
+        Calculate the total input tokens used by users today.
         """
-        # Filter messages linked to the specific is_muhbir flag
-        messages = Message.objects.filter(conversation__client__is_muhbir=obj.is_muhbir)
+        from django.utils.timezone import now
 
-        total_input_tokens = 0
-        total_output_tokens = 0
+        today = now().date()
+        # Filter messages for today and calculate tokens for user messages
+        messages = Message.objects.filter(
+            conversation__client__is_muhbir=obj.is_muhbir,
+            sender="user",
+            timestamp__date=today,  # Filter messages sent today
+        )
 
-        if settings.HISTORY_ALLOWED:
-            # Calculate input tokens with accumulated history
-            history = ""
-            for message in messages.order_by("timestamp"):  # Ensure chronological order
-                if message.sender == "ai":
-                    total_output_tokens += calculate_tokens(message.content)
-                else:
-                    history += f"User: {message.content}\n"
-                    total_input_tokens += token_size_calculate(history)
-        else:
-            # Calculate input tokens without history accumulation
-            for message in messages:
-                if message.sender == "ai":
-                    total_output_tokens += calculate_tokens(message.content)
-                else:
-                    total_input_tokens += token_size_calculate(message.content)
+        total_input_tokens = sum(
+            token_size_calculate(message.content) for message in messages
+        )
 
-        return f"Input: {total_input_tokens}, Output: {total_output_tokens}"
+        return total_input_tokens
+
+    def total_output_tokens(self, obj):
+        """
+        Calculate the total output tokens used by AI overall.
+        """
+        # Filter messages sent by AI and calculate total tokens
+        messages = Message.objects.filter(
+            conversation__client__is_muhbir=obj.is_muhbir,
+            sender="ai",
+        )
+
+        total_output_tokens = sum(
+            calculate_tokens(message.content) for message in messages
+        )
+
+        return total_output_tokens
 
     def price(self, obj):
         """
-        Calculate the total cost based on token usage.
+        Calculate the total cost based on output tokens.
         """
-        total_tokens = self.total_tokens_spent(obj)
-        # Parse input and output tokens from the total_tokens_spent result
-        input_tokens, output_tokens = map(
-            int, total_tokens.replace("Input: ", "").replace("Output: ", "").split(", ")
-        )
+        total_output_tokens = self.total_output_tokens(obj)
 
-        input_price = (input_tokens / 1_000_000) * 0.150  # Cost for input tokens
-        output_price = (output_tokens / 1_000_000) * 0.600  # Cost for output tokens
+        # Calculate price based on output tokens only
+        output_price = (
+            total_output_tokens / 1_000_000
+        ) * 0.600  # Cost for output tokens
 
-        return f"{input_price + output_price:.4f} $"
+        return f"{output_price:.4f} $"  # Total price
 
-    total_tokens_spent.short_description = "Total Tokens (Input/Output)"
-    price.short_description = "Total Cost"
+    daily_usage.short_description = "Daily Input Tokens (Today)"
+    total_output_tokens.short_description = "Total Output Tokens (AI)"
+    price.short_description = "Total Cost (Output Only)"
 
 
 from django.urls import path
