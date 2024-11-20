@@ -2,7 +2,7 @@
 HISTORY_ALLOWED = True
 BASE_URL = "daryo-api"
 SITE_URL = "http://176.98.237.4"
-CLIENT_COUNTS = 1000000
+CLIENTS_COUNT = 1000000
 
 from pathlib import Path
 
@@ -13,7 +13,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = "django-insecure-9c1&76jsuxjf^=h$9-8$&9)1$(g%1j^bh0mfvf6^g*b0)j1m1f"
 
 
-DEBUG = False
+DEBUG = True
 ALLOWED_HOSTS = [
     "176.98.237.4",
     "127.0.0.1:8000",
@@ -70,16 +70,15 @@ TEMPLATES = [
 WSGI_APPLICATION = "core.wsgi.application"
 
 
- #Database
+# Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-#DATABASES = {
-#    "default": {
-#        "ENGINE": "django.db.backends.sqlite3",
-#        "NAME": BASE_DIR / "db.sqlite3",
-#    }
-#}
-
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.sqlite3",
+#         "NAME": BASE_DIR / "db.sqlite3",
+#     }
+# }
 
 
 import os
@@ -89,15 +88,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME'),
-        'USER': os.getenv('DB_USER'),
-        'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': os.getenv('DB_HOST', default='localhost'),
-        'PORT': os.getenv('DB_PORT', default='5432'),
-        'OPTIONS': {
-            'sslmode': os.getenv('DB_SSLMODE', default='disable'),
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("DB_NAME"),
+        "USER": os.getenv("DB_USER"),
+        "PASSWORD": os.getenv("DB_PASSWORD"),
+        "HOST": os.getenv("DB_HOST", default="localhost"),
+        "PORT": os.getenv("DB_PORT", default="5432"),
+        "OPTIONS": {
+            "sslmode": os.getenv("DB_SSLMODE", default="disable"),
         },
     }
 }
