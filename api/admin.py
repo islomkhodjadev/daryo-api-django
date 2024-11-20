@@ -164,72 +164,56 @@ class UsageLimitAdmin(admin.ModelAdmin):
     list_display = (
         "is_muhbir",
         "daily_limit",
-        "total_input_tokens_spent",
-        "total_output_tokens_spent",
+        "total_tokens_spent",
         "price",
     )
     list_filter = ("is_muhbir",)
 
-    def total_input_tokens_spent(self, obj):
+    def total_tokens_spent(self, obj):
         """
-        Calculate total input tokens for messages linked to the given usage limit.
-        Optimized with database aggregation and reduced logic.
+        Calculate total input and output tokens for messages linked to the given usage limit.
         """
+        # Filter messages linked to the specific is_muhbir flag
+        messages = Message.objects.filter(conversation__client__is_muhbir=obj.is_muhbir)
+
+        total_input_tokens = 0
+        total_output_tokens = 0
+
         if settings.HISTORY_ALLOWED:
-            # Accumulate history tokens (dynamic, slower but conditional)
-            messages = Message.objects.filter(
-                conversation__client__is_muhbir=obj.is_muhbir, sender="user"
-            )
-            total_input_tokens = 0
+            # Calculate input tokens with accumulated history
             history = ""
-            for message in messages:
-                history += f"User: {message.content}\n"
-                total_input_tokens += token_size_calculate(history)
+            for message in messages.order_by("timestamp"):  # Ensure chronological order
+                if message.sender == "ai":
+                    total_output_tokens += calculate_tokens(message.content)
+                else:
+                    history += f"User: {message.content}\n"
+                    total_input_tokens += token_size_calculate(history)
         else:
-            # Direct calculation for individual messages
-            total_input_tokens = (
-                Message.objects.filter(
-                    conversation__client__is_muhbir=obj.is_muhbir, sender="user"
-                )
-                .aggregate(total=Sum(models.functions.Length("content")))
-                .get("total", 0)  # Ensure a default value of 0
-            )
-            total_input_tokens = (
-                total_input_tokens or 0
-            ) // 4  # Approximate token count
+            # Calculate input tokens without history accumulation
+            for message in messages:
+                if message.sender == "ai":
+                    total_output_tokens += calculate_tokens(message.content)
+                else:
+                    total_input_tokens += token_size_calculate(message.content)
 
-        return total_input_tokens
-
-    def total_output_tokens_spent(self, obj):
-        """
-        Calculate total output tokens for AI messages.
-        """
-        total_output_tokens = (
-            Message.objects.filter(
-                conversation__client__is_muhbir=obj.is_muhbir, sender="ai"
-            )
-            .aggregate(total=Sum(models.functions.Length("content")))
-            .get("total", 0)  # Ensure a default value of 0
-        )
-        total_output_tokens = (total_output_tokens or 0) // 4  # Approximate token count
-        return total_output_tokens
+        return f"Input: {total_input_tokens}, Output: {total_output_tokens}"
 
     def price(self, obj):
         """
         Calculate the total cost based on token usage.
         """
-        total_input_tokens = self.total_input_tokens_spent(obj)
-        total_output_tokens = self.total_output_tokens_spent(obj)
+        total_tokens = self.total_tokens_spent(obj)
+        # Parse input and output tokens from the total_tokens_spent result
+        input_tokens, output_tokens = map(
+            int, total_tokens.replace("Input: ", "").replace("Output: ", "").split(", ")
+        )
 
-        input_price = (total_input_tokens / 1_000_000) * 0.150  # Cost for input tokens
-        output_price = (
-            total_output_tokens / 1_000_000
-        ) * 0.600  # Cost for output tokens
+        input_price = (input_tokens / 1_000_000) * 0.150  # Cost for input tokens
+        output_price = (output_tokens / 1_000_000) * 0.600  # Cost for output tokens
 
-        return f"{input_price + output_price:.4f} $"  # Total price
+        return f"{input_price + output_price:.4f} $"
 
-    total_input_tokens_spent.short_description = "Input Tokens"
-    total_output_tokens_spent.short_description = "Output Tokens"
+    total_tokens_spent.short_description = "Total Tokens (Input/Output)"
     price.short_description = "Total Cost"
 
 
