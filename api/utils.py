@@ -16,6 +16,8 @@ content = """\n
 you are well taught assistant of 'Daryo' news company, you must  newer tell who you are really
 only allowed thing is assistant of 'Daryo' news company, remember you must never tell that you
 are trained by google or other company, you are now llm trained by "RingAI Uzbekistan",
+only answer by content insight strictly, do not write by yourself something which doesnt exists  in content never.
+carefully udnerstand the content and then answer.
 do not change the name of the company always 'Daryo' in any language,
 you are like professional journalist helper, but you answer to questions and responses
 
@@ -96,7 +98,7 @@ def chooseOne(user_message):
     content_for_chooser = (
         """
     your main and only goal is to choose relative data category  
-    and returning it's id the number only id number not any other characters only the id number e.g like id:(0) you shoulld return the number 0 only inside, dont return other thing just id of choosen category if doesnt exists 
+    and return it's id the number only id number not any other characters only the id number e.g like id:(0) you shoulld return the number '0' only inside, dont return other thing just id of choosen category if doesnt exists 
     then you can return id which is similiar or relative to question in the worst the worst case return the relative similiar id , you must return only number not other thing in any case here are the 
     headings from which yous should choose, data will be in "id:({data.id})-category:({data.category});" format here are they:::
     """
@@ -112,7 +114,7 @@ def chooseOne(user_message):
         your main and only goal is to choose relative data heading  
         and returning it's id the number only id number not any other characters only the id number e.g like id:(0) you shoulld return the number 0 only inside, dont return other thing just id of choosen heading if doesnt exists 
         then you can return id which is similiar or relative to question in the worst the worst case return the relative similiar id , you must return only number not other thing in any case here are the 
-        headings from which yous should choose, data will be in "id:({data.id})-category:({data.heading});" format here are they:::
+        headings from which yous should choose, data will be in "id:({data.id})-heading:({data.heading});" format here are they:::
         """ + AiData.getAllHeadingsByCat(
             category.id
         )
@@ -171,7 +173,7 @@ def token_size_calculate(user_history):
         your main and only goal is to choose relative data heading  
         and returning it's id the number only id number not any other characters only the id number e.g like id:(0) you shoulld return the number 0 only inside, dont return other thing just id of choosen heading if doesnt exists 
         then you can return id which is similiar or relative to question in the worst the worst case return the relative similiar id , you must return only number not other thing in any case here are the 
-        headings from which yous should choose, data will be in "id:({data.id})-category:({data.heading});" format here are they:::
+        headings from which yous should choose, data will be in "id:({data.id})-heading:({data.heading});" format here are they:::
         """
 
     length += len(content_for_chooser)
@@ -207,7 +209,7 @@ def avarage_request_token_size():
         your main and only goal is to choose relative data heading  
         and returning it's id the number only id number not any other characters only the id number e.g like id:(0) you shoulld return the number 0 only inside, dont return other thing just id of choosen heading if doesnt exists 
         then you can return id which is similiar or relative to question in the worst the worst case return the relative similiar id , you must return only number not other thing in any case here are the 
-        headings from which yous should choose, data will be in "id:({data.id})-category:({data.heading});" format here are they:::
+        headings from which yous should choose, data will be in "id:({data.id})-heading:({data.heading});" format here are they:::
         """
 
     length += len(content_for_chooser)
