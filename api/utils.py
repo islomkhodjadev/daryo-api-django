@@ -90,7 +90,7 @@ ai = ai_gemini
 import logging
 
 # Get the custom logger
-logger = logging.getLogger("myapp")
+logger = logging.getLogger("daryo-api")
 
 
 def chooseOne(user_message):
