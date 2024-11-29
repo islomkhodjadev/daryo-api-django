@@ -87,6 +87,11 @@ def ai_gpt(content, user_message):
 
 ai = ai_gemini
 
+import logging
+
+# Get the custom logger
+logger = logging.getLogger("myapp")
+
 
 def chooseOne(user_message):
     global content
@@ -108,7 +113,7 @@ def chooseOne(user_message):
 
     data_smth = get_content_and_user_message(content_for_chooser, user_message)
     category = Category.getData(data_smth)
-
+    logger.info(f"category-id: {data_smth}, category instance: {category}\n")
     if category is not None:
 
         content_for_chooser = """
@@ -123,7 +128,7 @@ def chooseOne(user_message):
         data_smth = get_content_and_user_message(content_for_chooser, user_message)
 
         aidata = AiData.getData(data_smth)
-
+        logger.info(f"AI data id: {data_smth}, aidata: {aidata}\n")
         if aidata is not None:
             token_used += len(aidata.content)
 
