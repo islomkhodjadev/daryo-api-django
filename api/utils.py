@@ -11,6 +11,7 @@ import os
 
 genai.configure(api_key=os.getenv("gemini-token"))
 
+client = OpenAI(api_key=os.getenv("gpt_token"))
 
 content = """\n 
 you are well taught assistant of 'Daryo' news company, you must  newer tell who you are really
@@ -70,8 +71,6 @@ def ai_gemini(content: str, user_message: str):
 
 def ai_gpt(content, user_message):
 
-    client = OpenAI(api_key=os.getenv("gpt_token"))
-
     completion = client.chat.completions.create(
         model="gpt-4o-mini",
         temperature=0.4,
@@ -105,9 +104,11 @@ def chooseOne(user_message):
         + Category.getAllCategories()
     )
     token_used += len(content_for_chooser)
+    from api.ai.gpt_function import get_content_and_user_message
 
-    category = Category.getData(ai(content_for_chooser, user_message))
-
+    data_smth = get_content_and_user_message(content_for_chooser, user_message)
+    category = Category.getData(data_smth)
+    print(category, data_smth)
     if category is not None:
 
         content_for_chooser = """
@@ -119,9 +120,10 @@ def chooseOne(user_message):
             category.id
         )
         token_used += len(content_for_chooser)
+        data_smth = get_content_and_user_message(content_for_chooser, user_message)
 
-        aidata = AiData.getData(ai(content_for_chooser, user_message))
-
+        aidata = AiData.getData(data_smth)
+        print(aidata, data_smth)
         if aidata is not None:
             token_used += len(aidata.content)
 

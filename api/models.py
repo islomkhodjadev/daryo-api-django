@@ -389,12 +389,20 @@ class AiData(models.Model):
         Retrieve a single article by id, limited to the last 500 articles.
         """
         last_500_ids = cls.getLast500().values_list("id", flat=True)
-        if id in last_500_ids:
-            try:
-                return cls.objects.get(id=id)
-            except cls.DoesNotExist:
-                return None
-        return None
+        try:
+            id = int(id)
+        except (ValueError, TypeError):
+            return None  # Invalid ID format
+
+        # Safely retrieve data, handling potential errors
+        try:
+            data = cls.objects.get(id=id)
+            return data
+        except ObjectDoesNotExist:
+            return None  # Handle if the object does not exist
+        except Exception as e:
+            # Optionally log the exception or handle other errors
+            return None
 
     @classmethod
     def getAllHeadings(cls):

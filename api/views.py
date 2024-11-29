@@ -229,3 +229,52 @@ def chat_view(self, request, conversation_id):
 
     context = {"conversation": conversation, "messages": messages}
     return render(request, "admin/conversation_chat.html", context)
+
+
+from rest_framework.response import Response
+from rest_framework import status
+from .models import AiData, Category
+from .serializers import AiDataSerializer
+
+
+class AiDataCreateView(APIView):
+    """
+    API endpoint to add data to the AiData model.
+    """
+
+    def post(self, request):
+        # Extract data from the request
+        heading = request.data.get("heading")
+        content = request.data.get("content")
+        category_ids = request.data.get("categories", [])
+
+        # Validate required fields
+        if not heading or not content:
+            return Response(
+                {"error": "Both 'heading' and 'content' are required fields."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            # Ensure all provided categories exist
+            categories = Category.objects.filter(id__in=category_ids)
+            if len(categories) != len(category_ids):
+                return Response(
+                    {"error": "One or more category IDs are invalid."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Create the AiData record
+            ai_data = AiData.objects.create(heading=heading, content=content)
+            ai_data.categories.set(categories)  # Associate categories with the AiData
+            ai_data.save()
+
+            # Serialize and return the created AiData
+            serializer = AiDataSerializer(ai_data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response(
+                {"error": f"An error occurred: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
