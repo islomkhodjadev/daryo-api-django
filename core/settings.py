@@ -84,6 +84,8 @@ if DEBUG:
 else:
     from core.production import DATABASES
 
+    DATABASES = DATABASES
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
