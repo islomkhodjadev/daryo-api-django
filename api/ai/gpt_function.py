@@ -2,7 +2,7 @@ from openai import OpenAI
 from api.utils import client
 
 
-def get_content_and_user_message(content, user_message):
+def get_id_gpt(content, user_message):
     tools = [
         {
             "type": "function",
