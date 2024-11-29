@@ -175,7 +175,6 @@ CORS_ALLOW_HEADERS = [
     "Content-Type",
 ]
 
-
 import os
 
 LOGGING = {
@@ -184,36 +183,42 @@ LOGGING = {
     "formatters": {
         "verbose": {
             "format": "{levelname} {asctime} {module} {message}",
-            "style": "{",
+            "style": "{",  # Ensure format style matches the placeholders
         },
         "simple": {
             "format": "{levelname} {message}",
-            "style": "{",
+            "style": "{",  # Matches the `{message}` placeholder
         },
     },
     "handlers": {
         "file": {
-            "level": "DEBUG",  # Minimum logging level
+            "level": "DEBUG",  # Minimum logging level for this handler
             "class": "logging.FileHandler",
-            "filename": os.path.join(BASE_DIR, "logs/debug.log"),
+            # Ensure this path exists or is created dynamically
+            "filename": os.path.join(os.path.dirname(__file__), "logs/debug.log"),
             "formatter": "verbose",  # Use the verbose formatter
         },
         "console": {
-            "level": "DEBUG",
-            "class": "logging.StreamHandler",
-            "formatter": "simple",
+            "level": "DEBUG",  # Minimum logging level for this handler
+            "class": "logging.StreamHandler",  # Outputs to console
+            "formatter": "simple",  # Use the simple formatter
         },
     },
     "loggers": {
         "django": {
-            "handlers": ["file", "console"],
-            "level": "DEBUG",
-            "propagate": True,
+            "handlers": ["file", "console"],  # Send logs to both file and console
+            "level": "DEBUG",  # Log all messages DEBUG and above
+            "propagate": True,  # Allow logs to bubble up to parent loggers
         },
         "daryo-api": {  # Custom logger for your app
-            "handlers": ["file"],
-            "level": "INFO",
-            "propagate": False,
+            "handlers": ["file"],  # Log to the file handler
+            "level": "INFO",  # Only log messages INFO and above
+            "propagate": False,  # Prevent logs from propagating further
         },
     },
 }
+
+# Ensure the logs directory exists
+LOG_DIR = os.path.join(os.path.dirname(__file__), "logs")
+if not os.path.exists(LOG_DIR):
+    os.makedirs(LOG_DIR)
